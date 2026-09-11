@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:configure="pl.walbrzych.autobus.widget.DeparturesWidgetConfigurationActivity"
+    android:initialLayout="@layout/widget_departure"
+    android:minHeight="110dp"
+    android:minWidth="250dp"
+    android:resizeMode="horizontal|vertical"
+    android:updatePeriodMillis="0"
+    android:widgetCategory="home_screen" />

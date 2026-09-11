@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <!-- Legacy MyBus operators below use HTTP. Cleartext is deliberately not global. -->
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="false">rozklad.mzkbp.pl</domain>
+        <domain includeSubdomains="false">83.13.186.174</domain>
+        <domain includeSubdomains="false">rozklad.cla.net.pl</domain>
+        <domain includeSubdomains="false">rozklad.zgk.cieszyn.pl</domain>
+        <domain includeSubdomains="false">rj.mks.debica.pl</domain>
+        <domain includeSubdomains="false">www.rozklad.zkm.elblag.com.pl</domain>
+        <domain includeSubdomains="false">info.gait.pl</domain>
+        <domain includeSubdomains="false">89.151.3.5</domain>
+        <domain includeSubdomains="false">bus.inowroclaw.pl</domain>
+        <domain includeSubdomains="false">www.seba.mzk.jgora.pl</domain>
+        <domain includeSubdomains="false">79.188.1.197</domain>
+        <domain includeSubdomains="false">sip.ztm.kielce.pl</domain>
+        <domain includeSubdomains="false">89.239.105.31</domain>
+        <domain includeSubdomains="false">176.104.119.244</domain>
+        <domain includeSubdomains="false">rozklad.mks-krosno.pl</domain>
+        <domain includeSubdomains="false">rozklad.km.kutno.pl</domain>
+        <domain includeSubdomains="false">mybus.autobusy.legnica.eu</domain>
+        <domain includeSubdomains="false">rozklad.mzk.leszno.pl</domain>
+        <domain includeSubdomains="false">sip.ztm.lublin.eu</domain>
+        <domain includeSubdomains="false">rozklady.lodz.pl</domain>
+        <domain includeSubdomains="false">rozklad.mzklowicz.pl</domain>
+        <domain includeSubdomains="false">mapa.mks-mielec.pl</domain>
+        <domain includeSubdomains="false">sip.zdzit.olsztyn.eu</domain>
+        <domain includeSubdomains="false">rozklad.mzk.ostroleka.pl</domain>
+        <domain includeSubdomains="false">185.22.8.43</domain>
+        <domain includeSubdomains="false">rozklad.mzkostrowiec.pl</domain>
+        <domain includeSubdomains="false">mybus.komunikacjapabianice.pl</domain>
+        <domain includeSubdomains="false">zkmp.com.pl</domain>
+        <domain includeSubdomains="false">rozklad.mzk.przemysl.pl</domain>
+        <domain includeSubdomains="false">mapa.mzk.pulawy.pl</domain>
+        <domain includeSubdomains="false">31.11.251.95</domain>
+        <domain includeSubdomains="false">mpk.mpk-radomsko.pl</domain>
+        <domain includeSubdomains="false">rozklad.km.rybnik.pl</domain>
+        <domain includeSubdomains="false">rozkladjazdy.spgk.com.pl</domain>
+        <domain includeSubdomains="false">kis.busturas.lt</domain>
+        <domain includeSubdomains="false">176.97.80.62</domain>
+        <domain includeSubdomains="false">rozklad-jazdy.zecstar.pl</domain>
+        <domain includeSubdomains="false">89.22.39.6</domain>
+        <domain includeSubdomains="false">www.grj.mpk.swidnica.pl</domain>
+        <domain includeSubdomains="false">213.108.80.2</domain>
+        <domain includeSubdomains="false">www.mhd-tabor.comettplus.cz</domain>
+        <domain includeSubdomains="false">157.25.157.76</domain>
+        <domain includeSubdomains="false">80.85.231.251</domain>
+        <domain includeSubdomains="false">www.rozklady.tczew.pl</domain>
+        <domain includeSubdomains="false">rozklad.walbrzych.eu</domain>
+        <domain includeSubdomains="false">37.109.29.250</domain>
+    </domain-config>
+</network-security-config>

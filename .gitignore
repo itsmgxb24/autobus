@@ -1,0 +1,11 @@
+# Local IDE and Gradle state
+.gradle/
+.idea/
+*.iml
+
+# Machine-specific Android SDK configuration
+local.properties
+
+# Generated build artifacts
+build/
+**/build/
