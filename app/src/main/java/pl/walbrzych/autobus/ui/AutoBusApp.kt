@@ -873,7 +873,9 @@ private fun ScheduleScreen(
                         }
                     }
                     HomeScreenTile.NEARBY_STOPS -> if (query.isBlank()) {
-                        item { LocationStatusCard(locationAccess) }
+                        if (locationAccess.state !is UserLocationState.Available) {
+                            item { LocationStatusCard(locationAccess) }
+                        }
                         item { HomeTileTitle("Najbliższe przystanki") }
                         if (matchingStops.isEmpty()) {
                             item { EmptySearch() }
@@ -1276,6 +1278,7 @@ private fun HomeScreenEditor(
 
 @Composable
 private fun LocationStatusCard(access: UserLocationAccess) {
+    if (access.state is UserLocationState.Available) return
     Surface(
         shape = MaterialTheme.shapes.large,
         color = MaterialTheme.colorScheme.surfaceContainerLow,
@@ -1291,11 +1294,11 @@ private fun LocationStatusCard(access: UserLocationAccess) {
             headlineContent = {
                 Text(
                     when (access.state) {
-                        is UserLocationState.Available -> "Przystanki są sortowane względem Twojej lokalizacji"
                         UserLocationState.Locating -> "Ustalanie Twojej lokalizacji…"
                         UserLocationState.RequestingPermission -> "Potrzebujemy lokalizacji do sortowania przystanków"
                         UserLocationState.PermissionDenied -> "Lokalizacja nie została udostępniona"
                         is UserLocationState.Unavailable -> "Lokalizacja jest chwilowo niedostępna"
+                        is UserLocationState.Available -> ""
                     },
                 )
             },
@@ -1326,9 +1329,8 @@ private fun StopRow(
             supportingContent = {
                 val lines = stop.timetables.map { it.line }.distinct().joinToString(" · ")
                 val reference = userLocation ?: downloadedDataCenter
-                val source = if (userLocation == null) "środka pobranych przystanków" else "Twojej lokalizacji"
                 Text(
-                    "${stop.distanceTo(reference.latitude, reference.longitude)} m od $source · linie $lines",
+                    "${stop.distanceTo(reference.latitude, reference.longitude)} m · linie $lines",
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                 )
