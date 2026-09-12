@@ -14,6 +14,7 @@ interface MyBusService {
     suspend fun realTimeDepartures(stopId: Int, groupId: Int = 0): RealTimeDepartures
     suspend fun departureInfo(date: LocalDate, stopId: Int, uniqueTripId: Long): DepartureInfo?
     suspend fun vehicles(line: String, directionCode: String): List<LiveVehicle>
+    suspend fun vehiclesBySideNumber(sideNumber: Int): List<LiveVehicle>
 }
 
 object MyBusXmlParser {
@@ -31,17 +32,21 @@ object MyBusXmlParser {
                     notice = element.textContent.trim().takeIf(String::isNotEmpty)
                     null
                 }
-                "D" -> RealTimeDeparture(
-                    departureId = element.required("i").toInt(),
-                    tripId = element.required("di", "i").toInt(),
-                    line = element.required("r").trim(),
-                    direction = element.required("d").trim(),
-                    directionCode = element.optional("dd")?.trim()?.takeIf(String::isNotEmpty),
-                    scheduledSeconds = element.required("t").toInt(),
-                    displayValue = element.required("v").trim(),
-                    status = element.required("m").toInt(),
-                    vehicleNumber = element.optional("n")?.toIntOrNull()?.takeIf { it > 0 },
-                )
+                "D" -> {
+                    val n = element.optional("n")?.trim()?.toIntOrNull() ?: 0
+                    RealTimeDeparture(
+                        departureId = element.required("i").toInt(),
+                        tripId = element.required("di", "i").toInt(),
+                        line = element.required("r").trim(),
+                        direction = element.required("d").trim(),
+                        directionCode = element.optional("dd")?.trim()?.takeIf(String::isNotEmpty),
+                        scheduledSeconds = element.required("t").toInt(),
+                        displayValue = element.required("v").trim(),
+                        status = element.required("m").toInt(),
+                        vehicleNumber = n.takeIf { it > 0 },
+                        n = n,
+                    )
+                }
                 else -> null
             }
         }
@@ -52,7 +57,11 @@ object MyBusXmlParser {
         val root = document(xml).documentElement.requireName("VL")
         return root.elementChildren().filter { it.tagName == "V" }.map { element ->
             LiveVehicle(
-                vehicleId = element.required("id").toLong(),
+                // GetVehicles responses scoped to a side number may omit the internal
+                // vehicle id, while still containing the current course id (ik).
+                vehicleId = element.optional("id")?.trim()?.toLongOrNull()
+                    ?: element.optional("ik")?.trim()?.toLongOrNull()
+                    ?: 0L,
                 sideNumber = element.required("nb").toInt(),
                 line = element.optional("nr")?.trim().orEmpty(),
                 variant = element.optional("wt")?.trim().orEmpty(),
@@ -63,6 +72,9 @@ object MyBusXmlParser {
                 predictedLongitude = element.optional("px")?.coordinateOrNull(),
                 destination = element.optional("op")?.trim().orEmpty(),
                 reportedAt = element.optional("p")?.trim().orEmpty(),
+                activeCourseId = element.optional("ik")?.trim()?.toLongOrNull(),
+                nextCourseId = element.optional("nk")?.trim()?.toLongOrNull(),
+                status = element.optional("s")?.trim().orEmpty(),
             )
         }
     }

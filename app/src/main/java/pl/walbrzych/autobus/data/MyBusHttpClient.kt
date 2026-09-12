@@ -82,12 +82,39 @@ class MyBusHttpClient(
             ),
         )
 
+    override suspend fun vehiclesBySideNumber(sideNumber: Int): List<LiveVehicle> =
+        MyBusXmlParser.parseVehicles(
+            get(
+                "GetVehicles",
+                mapOf(
+                    "cNbLst" to sideNumber.toString(),
+                    "cIdLst" to "",
+                    "cRouteLst" to "",
+                    "cTrackLst" to "",
+                    "cDirLst" to "",
+                    "cKrsLst" to "",
+                ),
+            ),
+        )
+
     private suspend fun get(endpoint: String, query: Map<String, String> = emptyMap()): ByteArray {
         val token = tokenLock.withLock { sessionToken ?: pingLocked() }
         val url = baseUrl.newBuilder().addPathSegment(endpoint).apply {
             query.forEach { (name, value) -> addQueryParameter(name, value) }
         }.build()
-        return requestWithSingleRetry(url, token)
+        return try {
+            requestWithSingleRetry(url, token)
+        } catch (failure: MyBusHttpException) {
+            // MyBus invalidates an old session through an HTTP authentication-style
+            // response. Refresh once, then retry the original request. The mutex
+            // prevents concurrent refreshes from creating a PingService stampede.
+            if (failure.code !in setOf(400, 401, 403)) throw failure
+            val refreshedToken = tokenLock.withLock {
+                if (sessionToken == token) sessionToken = null
+                sessionToken ?: pingLocked()
+            }
+            requestWithSingleRetry(url, refreshedToken)
+        }
     }
 
     private suspend fun pingLocked(): Int {

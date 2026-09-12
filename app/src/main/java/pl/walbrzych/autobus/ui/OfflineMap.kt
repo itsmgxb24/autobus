@@ -33,6 +33,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.core.content.res.ResourcesCompat
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
@@ -45,6 +46,7 @@ import org.osmdroid.views.overlay.Marker
 import org.osmdroid.views.overlay.Polyline
 import pl.walbrzych.autobus.data.StopData
 import pl.walbrzych.autobus.data.LiveVehicle
+import pl.walbrzych.autobus.data.destinationLabel
 
 /** Interactive map of every stop from the active downloaded schedule. */
 @Composable
@@ -56,7 +58,7 @@ fun OfflineMap(
     vehicles: List<LiveVehicle> = emptyList(),
     userLocation: UserLocation? = null,
     onMapClick: (() -> Unit)? = null,
-    interactive: Boolean = true,
+    interactive: Boolean = false,
     roundedCorners: Boolean = true,
 ) {
     TransitMap(
@@ -75,11 +77,15 @@ fun LineRouteMap(
     direction: String,
     modifier: Modifier = Modifier,
     vehicles: List<LiveVehicle> = emptyList(),
+    onStopClick: ((StopData) -> Unit)? = null,
+    onMapClick: (() -> Unit)? = null,
+    interactive: Boolean = false,
+    roundedCorners: Boolean = true,
 ) {
     TransitMap(
-        stops = stopsForRoute, onStopClick = null, modifier = modifier,
+        stops = stopsForRoute, onStopClick = onStopClick, modifier = modifier,
         showStopNames = true, line = line, direction = direction, vehicles = vehicles, userLocation = null,
-        onMapClick = null, interactive = true, roundedCorners = true,
+        onMapClick = onMapClick, interactive = interactive, roundedCorners = roundedCorners,
     )
 }
 
@@ -97,6 +103,7 @@ fun FullscreenStopMap(
             onStopClick = onStopClick,
             userLocation = userLocation,
             roundedCorners = false,
+            interactive = true,
             modifier = Modifier.fillMaxSize(),
         )
         Surface(
@@ -108,6 +115,133 @@ fun FullscreenStopMap(
             IconButton(onClick = onBack) {
                 Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Wróć")
             }
+        }
+    }
+}
+
+/** Full-screen, interactive view of a selected line variant. */
+@Composable
+fun FullscreenLineRouteMap(
+    stopsForRoute: List<StopData>,
+    line: String,
+    direction: String,
+    onBack: () -> Unit,
+    onStopClick: (StopData) -> Unit,
+) {
+    Box(Modifier.fillMaxSize()) {
+        LineRouteMap(
+            stopsForRoute = stopsForRoute,
+            line = line,
+            direction = direction,
+            onStopClick = onStopClick,
+            interactive = true,
+            roundedCorners = false,
+            modifier = Modifier.fillMaxSize(),
+        )
+        Surface(
+            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.94f),
+            shape = MaterialTheme.shapes.extraLarge,
+            shadowElevation = 3.dp,
+            modifier = Modifier.align(Alignment.TopStart).statusBarsPadding().padding(12.dp),
+        ) {
+            IconButton(onClick = onBack) {
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Wróć")
+            }
+        }
+    }
+}
+
+/** A map that owns one marker and updates that marker in place when a refresh arrives. */
+@Composable
+fun VehicleLocationMap(
+    vehicle: LiveVehicle,
+    line: String,
+    directionLabel: String,
+    nextStopName: String?,
+    nextStopId: String?,
+    etaLabel: String?,
+    routeStops: List<StopData>,
+    modifier: Modifier = Modifier,
+) {
+    val lifecycleOwner = LocalLifecycleOwner.current
+    val vehicleContainerColor = MaterialTheme.colorScheme.primaryContainer.toArgb()
+    val vehicleContentColor = MaterialTheme.colorScheme.onPrimaryContainer.toArgb()
+    val vehicleLocationColor = MaterialTheme.colorScheme.primary.toArgb()
+    val vehicleLocationContentColor = MaterialTheme.colorScheme.onPrimary.toArgb()
+    var vehicleMapView by remember { mutableStateOf<MapView?>(null) }
+
+    DisposableEffect(lifecycleOwner) {
+        val observer = object : DefaultLifecycleObserver {
+            override fun onResume(owner: LifecycleOwner) = vehicleMapView?.onResume() ?: Unit
+            override fun onPause(owner: LifecycleOwner) = vehicleMapView?.onPause() ?: Unit
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
+    Box(modifier) {
+        AndroidView(
+            factory = { viewContext ->
+                Configuration.getInstance().userAgentValue =
+                    "${viewContext.packageName}/${pl.walbrzych.autobus.BuildConfig.VERSION_NAME}"
+                MapView(viewContext).apply {
+                    setMultiTouchControls(true)
+                    isTilesScaledToDpi = true
+                    setTileSource(TileSourceFactory.MAPNIK)
+                    controller.setZoom(16.5)
+                    val marker = Marker(this).apply {
+                        setAnchor(LiveVehicleDrawable.LOCATION_ANCHOR_X, LiveVehicleDrawable.LOCATION_ANCHOR_Y)
+                    }
+                    overlays += marker
+                    tag = VehicleMapRenderTag(marker)
+                    vehicleMapView = this
+                    if (lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) onResume()
+                }
+            },
+            update = { mapView ->
+                val renderTag = mapView.tag as VehicleMapRenderTag
+                val position = GeoPoint(vehicle.latitude, vehicle.longitude)
+                renderTag.marker.position = position
+                renderTag.marker.title = buildString {
+                    append("Linia ")
+                    append(line.ifBlank { vehicle.line.ifBlank { "—" } })
+                    append(" · pojazd ")
+                    append(vehicle.sideNumber)
+                }
+                renderTag.marker.subDescription = vehicle.destination.ifBlank {
+                    "Pozycja z serwera MyBus"
+                }
+                renderTag.marker.icon = LiveVehicleDrawable(
+                    context = mapView.context,
+                    containerColor = vehicleContainerColor,
+                    contentColor = vehicleContentColor,
+                    locationColor = vehicleLocationColor,
+                    locationContentColor = vehicleLocationContentColor,
+                    line = line.ifBlank { vehicle.line.ifBlank { "—" } },
+                    directionLabel = directionLabel,
+                    nextStopName = nextStopName,
+                    etaLabel = etaLabel,
+                )
+                renderTag.updateRouteStops(mapView, routeStops, nextStopId)
+                if (!renderTag.initialPositionApplied) {
+                    mapView.controller.setCenter(position)
+                    mapView.post { mapView.controller.setCenter(position) }
+                    renderTag.initialPositionApplied = true
+                }
+                mapView.invalidate()
+            },
+            modifier = Modifier.fillMaxSize(),
+        )
+        Surface(
+            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
+            shape = MaterialTheme.shapes.small,
+            modifier = Modifier.align(Alignment.BottomStart).padding(12.dp),
+        ) {
+            Text(
+                text = "© OpenStreetMap",
+                style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp),
+            )
         }
     }
 }
@@ -129,6 +263,10 @@ private fun TransitMap(
     val lifecycleOwner = LocalLifecycleOwner.current
     var mapView by remember { mutableStateOf<MapView?>(null) }
     val routeColor = MaterialTheme.colorScheme.tertiary.toArgb()
+    val liveVehicleContainerColor = MaterialTheme.colorScheme.tertiaryContainer.toArgb()
+    val liveVehicleContentColor = MaterialTheme.colorScheme.onTertiaryContainer.toArgb()
+    val liveVehicleLocationColor = MaterialTheme.colorScheme.tertiary.toArgb()
+    val liveVehicleLocationContentColor = MaterialTheme.colorScheme.onTertiary.toArgb()
 
     // MapView.onDetachedFromWindow already performs osmdroid's final onDetach. This
     // effect must not be keyed by mapView: assigning a freshly created MapView used to
@@ -152,6 +290,7 @@ private fun TransitMap(
                     "${viewContext.packageName}/${pl.walbrzych.autobus.BuildConfig.VERSION_NAME}"
                 MapView(viewContext).apply {
                     setMultiTouchControls(interactive)
+                    isEnabled = interactive
                     isTilesScaledToDpi = true
                     setTileSource(TileSourceFactory.MAPNIK)
                     controller.setZoom(13.5)
@@ -190,8 +329,18 @@ private fun TransitMap(
                         position = GeoPoint(vehicle.latitude, vehicle.longitude)
                         title = "Linia ${vehicle.line.ifBlank { "—" }} · pojazd ${vehicle.sideNumber}"
                         subDescription = vehicle.destination.ifBlank { "Pozycja z serwera MyBus" }
-                        icon = LiveVehicleDrawable(routeColor)
-                        setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
+                        icon = LiveVehicleDrawable(
+                            context = view.context,
+                            containerColor = liveVehicleContainerColor,
+                            contentColor = liveVehicleContentColor,
+                            locationColor = liveVehicleLocationColor,
+                            locationContentColor = liveVehicleLocationContentColor,
+                            line = vehicle.line.ifBlank { "—" },
+                            directionLabel = vehicle.destinationLabel().ifBlank {
+                                vehicle.variant.ifBlank { vehicle.directionCode }
+                            },
+                        )
+                        setAnchor(LiveVehicleDrawable.LOCATION_ANCHOR_X, LiveVehicleDrawable.LOCATION_ANCHOR_Y)
                     }
                 }
                 userLocation?.let { location ->
@@ -241,6 +390,35 @@ private fun centerOf(stops: List<StopData>): GeoPoint =
     else GeoPoint(stops.map { it.latitude }.average(), stops.map { it.longitude }.average())
 
 private data class MapRenderTag(val userLocationKey: String?)
+
+private class VehicleMapRenderTag(
+    val marker: Marker,
+    var initialPositionApplied: Boolean = false,
+) {
+    private var routeStopIds: List<String> = emptyList()
+    private var nextStopId: String? = null
+    private val routeStopMarkers = mutableListOf<Marker>()
+
+    fun updateRouteStops(mapView: MapView, routeStops: List<StopData>, nextStopId: String?) {
+        val newIds = routeStops.map(StopData::id)
+        if (newIds == routeStopIds && nextStopId == this.nextStopId) return
+        routeStopMarkers.forEach(mapView.overlays::remove)
+        routeStopMarkers.clear()
+        routeStopMarkers += routeStops.map { stop ->
+            stopMarker(mapView, stop, showName = false, onStopClick = null).apply {
+                title = if (stop.id == nextStopId) "Następny przystanek · ${stop.name}" else stop.name
+                subDescription = if (stop.id == nextStopId) {
+                    "Następny przystanek pojazdu"
+                } else {
+                    "Przystanek wariantu trasy pojazdu"
+                }
+            }
+        }
+        routeStopMarkers.forEach(mapView.overlays::add)
+        routeStopIds = newIds
+        this.nextStopId = nextStopId
+    }
+}
 
 private fun UserLocation.asGeoPoint(): GeoPoint = GeoPoint(latitude, longitude)
 private fun UserLocation.key(): String = "$latitude,$longitude"
@@ -305,20 +483,138 @@ private class StopMarkerDrawable(typeface: Typeface) : Drawable() {
     override fun getIntrinsicHeight(): Int = 60
 }
 
-private class LiveVehicleDrawable(private val color: Int) : Drawable() {
-    private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { textAlign = Paint.Align.CENTER }
+private class LiveVehicleDrawable(
+    context: Context,
+    private val containerColor: Int,
+    private val contentColor: Int,
+    private val locationColor: Int,
+    private val locationContentColor: Int,
+    private val line: String,
+    private val directionLabel: String,
+    private val nextStopName: String? = null,
+    private val etaLabel: String? = null,
+) : Drawable() {
+    private val density = context.resources.displayMetrics.density
+    private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val nerdTypeface = NerdMarkerTypeface.from(context)
+    private val textTypeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+
     override fun draw(canvas: Canvas) {
-        paint.color = color
-        canvas.drawRoundRect(bounds.left.toFloat(), bounds.top.toFloat(), bounds.right.toFloat(), bounds.bottom.toFloat(), 12f, 12f, paint)
-        paint.color = Color.WHITE; paint.textSize = 27f
-        canvas.drawText("BUS", bounds.exactCenterX(), bounds.exactCenterY() + 9f, paint)
+        val overallLeft = bounds.left.toFloat()
+        val overallTop = bounds.top.toFloat()
+        val unit = density
+        val cardLeft = overallLeft + CARD_LEFT_DP * unit
+        val cardTop = overallTop + CARD_TOP_DP * unit
+        val cardWidth = CARD_WIDTH_DP * unit
+        val cardHeight = CARD_HEIGHT_DP * unit
+        val locationX = overallLeft + LOCATION_X_DP * unit
+        val locationY = overallTop + LOCATION_Y_DP * unit
+
+        // The circle is the precise GPS point; the connector keeps the compact
+        // information card legible without pretending that its corner is the bus.
+        paint.style = Paint.Style.STROKE
+        paint.strokeWidth = 2f * unit
+        paint.strokeCap = Paint.Cap.ROUND
+        paint.color = locationColor
+        canvas.drawLine(
+            locationX + 5f * unit,
+            locationY + 5f * unit,
+            cardLeft + 7f * unit,
+            cardTop + 8f * unit,
+            paint,
+        )
+        paint.style = Paint.Style.FILL
+        paint.color = locationColor
+        canvas.drawCircle(locationX, locationY, 8f * unit, paint)
+        paint.style = Paint.Style.STROKE
+        paint.strokeWidth = 2f * unit
+        paint.color = locationContentColor
+        canvas.drawCircle(locationX, locationY, 5f * unit, paint)
+
+        paint.style = Paint.Style.FILL
+        paint.color = containerColor
+        canvas.drawRoundRect(
+            cardLeft,
+            cardTop,
+            cardLeft + cardWidth,
+            cardTop + cardHeight,
+            18f * unit,
+            18f * unit,
+            paint,
+        )
+
+        paint.typeface = nerdTypeface
+        paint.textAlign = Paint.Align.CENTER
+        paint.textSize = 25f * unit
+        paint.color = contentColor
+        canvas.drawText("󰃧", cardLeft + 20f * unit, cardTop + 29f * unit, paint)
+
+        paint.typeface = textTypeface
+        paint.textAlign = Paint.Align.LEFT
+        paint.textSize = 21f * unit
+        canvas.drawText(ellipsize(line, 34f * unit), cardLeft + 42f * unit, cardTop + 24f * unit, paint)
+
+        paint.textSize = 10f * unit
+        val subtitle = listOf(line, directionLabel).filter(String::isNotBlank).joinToString(" • ")
+        canvas.drawText(
+            ellipsize(subtitle, 96f * unit),
+            cardLeft + 42f * unit,
+            cardTop + 39f * unit,
+            paint,
+        )
+
+        val eta = etaLabel.orEmpty()
+        if (eta.isNotBlank()) {
+            paint.textAlign = Paint.Align.RIGHT
+            paint.textSize = 12f * unit
+            canvas.drawText(ellipsize(eta, 38f * unit), cardLeft + cardWidth - 10f * unit, cardTop + 27f * unit, paint)
+        }
+
+        paint.textAlign = Paint.Align.LEFT
+        paint.textSize = 10f * unit
+        val nextStop = nextStopName?.let { "Następny: $it" } ?: "Następny przystanek: —"
+        canvas.drawText(
+            ellipsize(nextStop, cardWidth - 52f * unit),
+            cardLeft + 42f * unit,
+            cardTop + cardHeight - 10f * unit,
+            paint,
+        )
+    }
+    private fun ellipsize(text: String, maxWidth: Float): String {
+        if (paint.measureText(text) <= maxWidth) return text
+        val suffix = "…"
+        val available = (maxWidth - paint.measureText(suffix)).coerceAtLeast(0f)
+        val count = paint.breakText(text, true, available, null)
+        return text.take(count) + suffix
     }
     override fun setAlpha(alpha: Int) { paint.alpha = alpha }
     override fun setColorFilter(colorFilter: android.graphics.ColorFilter?) { paint.colorFilter = colorFilter }
     @Suppress("OVERRIDE_DEPRECATION")
     override fun getOpacity(): Int = android.graphics.PixelFormat.TRANSLUCENT
-    override fun getIntrinsicWidth(): Int = 54
-    override fun getIntrinsicHeight(): Int = 36
+    override fun getIntrinsicWidth(): Int = (OVERALL_WIDTH_DP * density).toInt()
+    override fun getIntrinsicHeight(): Int = (OVERALL_HEIGHT_DP * density).toInt()
+
+    companion object {
+        const val OVERALL_WIDTH_DP = 212f
+        const val OVERALL_HEIGHT_DP = 86f
+        const val LOCATION_X_DP = 12f
+        const val LOCATION_Y_DP = 12f
+        const val CARD_LEFT_DP = 30f
+        const val CARD_TOP_DP = 21f
+        const val CARD_WIDTH_DP = 174f
+        const val CARD_HEIGHT_DP = 58f
+        const val LOCATION_ANCHOR_X = LOCATION_X_DP / OVERALL_WIDTH_DP
+        const val LOCATION_ANCHOR_Y = LOCATION_Y_DP / OVERALL_HEIGHT_DP
+    }
+}
+
+private object NerdMarkerTypeface {
+    private var cached: Typeface? = null
+
+    @Synchronized
+    fun from(context: Context): Typeface = cached ?: requireNotNull(
+        ResourcesCompat.getFont(context.applicationContext, pl.walbrzych.autobus.R.font.commit_mono_nerd_font_propo_regular),
+    ).also { cached = it }
 }
 
 private class UserLocationDrawable : Drawable() {

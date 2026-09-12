@@ -2,6 +2,7 @@
 
 package pl.walbrzych.autobus.ui
 
+import android.net.Uri
 import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.EnterTransition
@@ -31,7 +32,6 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.ConfirmationNumber
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.DragHandle
@@ -44,6 +44,7 @@ import androidx.compose.material.icons.filled.LocationCity
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Route
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
@@ -67,6 +68,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableFloatStateOf
@@ -118,7 +120,7 @@ import kotlin.math.abs
 private object Routes {
     const val SCHEDULE = "schedule"
     const val ALERTS = "alerts"
-    const val TICKETS = "tickets"
+    const val PLANNER = "planner"
     const val SETTINGS = "settings"
     const val SETTINGS_CITY = "settings/city"
     const val SETTINGS_SCHEDULE = "settings/schedule"
@@ -128,9 +130,13 @@ private object Routes {
     const val MAP = "map"
     const val STOP = "stop/{stopId}"
     const val STOP_PREFIX = "stop/"
+    const val VEHICLE = "vehicle/{sideNumber}/{departureId}/{stopId}/{line}"
+    const val VEHICLE_PREFIX = "vehicle/"
     const val LINES = "lines"
     const val LINE = "line/{stopId}/{lineId}"
     const val LINE_PREFIX = "line/"
+    const val LINE_MAP = "line_map/{stopId}/{lineId}/{variantKey}"
+    const val LINE_MAP_PREFIX = "line_map/"
     const val TICKET = "ticket/{ticketId}"
     const val TICKET_PREFIX = "ticket/"
     const val TICKET_DEMO = "ticket_demo/{ticketId}"
@@ -156,7 +162,7 @@ private fun SyncResult.snapshot(): ScheduleSnapshot = when (this) {
 private fun rootTabIndex(route: String?): Int? = when (route) {
     Routes.SCHEDULE -> 0
     Routes.ALERTS -> 1
-    Routes.TICKETS -> 2
+    Routes.PLANNER -> 2
     Routes.SETTINGS -> 3
     else -> null
 }
@@ -217,6 +223,16 @@ fun AutoBusApp() {
     var flowScreen by rememberSaveable {
         mutableStateOf(if (selectedCity == null) CityFlowScreen.WELCOME else CityFlowScreen.APP)
     }
+    val liveUpdateTarget by DepartureLiveUpdateNavigation.target.collectAsState()
+    LaunchedEffect(liveUpdateTarget?.cityId) {
+        val target = liveUpdateTarget ?: return@LaunchedEffect
+        val targetCity = CityCatalog.byId(target.cityId) ?: return@LaunchedEffect
+        if (selectedCity?.id != targetCity.id) {
+            citySelection.select(targetCity)
+            selectedCity = targetCity
+            flowScreen = CityFlowScreen.APP
+        }
+    }
     val flowState = CityFlowState(flowScreen, selectedCity?.id)
 
     AnimatedContent(
@@ -253,7 +269,11 @@ fun AutoBusApp() {
             }
             CityFlowScreen.APP -> selectedCity?.let { city ->
                 key(city.id) {
-                    CityAppContent(city = city, onChangeCity = { flowScreen = CityFlowScreen.PICKER })
+                    CityAppContent(
+                        city = city,
+                        onChangeCity = { flowScreen = CityFlowScreen.PICKER },
+                        liveUpdateTarget = liveUpdateTarget,
+                    )
                 }
             }
         }
@@ -347,7 +367,11 @@ private fun CityPickerScreen(
 }
 
 @Composable
-private fun CityAppContent(city: CityConfig, onChangeCity: () -> Unit) {
+private fun CityAppContent(
+    city: CityConfig,
+    onChangeCity: () -> Unit,
+    liveUpdateTarget: DepartureOpenTarget?,
+) {
     val context = LocalContext.current.applicationContext
     val repository = remember(context, city.id) { TransitRepository(context, city) }
     val scope = rememberCoroutineScope()
@@ -413,7 +437,16 @@ private fun CityAppContent(city: CityConfig, onChangeCity: () -> Unit) {
         snapshot == null -> NavigationDestinationSurface {
             ErrorScreen(initialError.orEmpty(), retry = { retryKey++ }, onChangeCity = onChangeCity)
         }
-        else -> TransitNavigation(snapshot!!, city, repository, syncing, syncNotice, refresh, onChangeCity)
+        else -> TransitNavigation(
+            snapshot = snapshot!!,
+            city = city,
+            repository = repository,
+            syncing = syncing,
+            syncNotice = syncNotice,
+            onRefresh = refresh,
+            onChangeCity = onChangeCity,
+            liveUpdateTarget = liveUpdateTarget,
+        )
     }
 }
 
@@ -426,12 +459,16 @@ private fun TransitNavigation(
     syncNotice: String?,
     onRefresh: () -> Unit,
     onChangeCity: () -> Unit,
+    liveUpdateTarget: DepartureOpenTarget?,
 ) {
     val stops = snapshot.stops
     val context = LocalContext.current.applicationContext
     val preferences = remember(context) { UserInterfacePreferences(context) }
     var showStopsWithoutLines by remember(city.id) {
         mutableStateOf(preferences.showStopsWithoutLines())
+    }
+    var markTrackableDepartures by remember(city.id) {
+        mutableStateOf(preferences.markTrackableDepartures())
     }
     var homeScreenConfiguration by remember(city.id) {
         mutableStateOf(preferences.homeScreenConfiguration())
@@ -445,12 +482,23 @@ private fun TransitNavigation(
     val locationAccess = rememberUserLocationAccess()
     val userLocation = (locationAccess.state as? UserLocationState.Available)?.location
     val navController = rememberNavController()
+    var departureToHighlight by remember(city.id) { mutableStateOf<DepartureOpenTarget?>(null) }
+    LaunchedEffect(liveUpdateTarget, city.id, stops) {
+        val target = liveUpdateTarget ?: return@LaunchedEffect
+        if (target.cityId != city.id || stops.none { it.id == target.stopId }) return@LaunchedEffect
+        departureToHighlight = target
+        navController.navigate(Routes.STOP_PREFIX + target.stopId) {
+            popUpTo(Routes.SCHEDULE) { inclusive = false }
+            launchSingleTop = true
+        }
+        DepartureLiveUpdateNavigation.clear()
+    }
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = backStackEntry?.destination
     val roots = listOf(
         RootDestination(Routes.SCHEDULE, "Rozkład") { Icon(Icons.Default.Schedule, null) },
         RootDestination(Routes.ALERTS, "KanarAlert") { Icon(Icons.Default.NotificationsActive, null) },
-        RootDestination(Routes.TICKETS, "Bilety") { Icon(Icons.Default.ConfirmationNumber, null) },
+        RootDestination(Routes.PLANNER, "Planer") { Icon(Icons.Default.Route, null) },
         RootDestination(Routes.SETTINGS, "Ustawienia") { Icon(Icons.Default.Settings, null) },
     )
     val onStopClick: (StopData) -> Unit = { navController.navigate(Routes.STOP_PREFIX + it.id) }
@@ -552,11 +600,17 @@ private fun TransitNavigation(
                     }
                 }
                 composable(route = Routes.ALERTS) {
-                    NavigationDestinationSurface { AlertScreen(displayedStops, onStopClick) }
-                }
-                composable(route = Routes.TICKETS) {
                     NavigationDestinationSurface {
-                        TicketsScreen(onTicketClick = { navController.navigate(Routes.TICKET_PREFIX + it.id) })
+                        AlertScreen(
+                            stops = displayedStops,
+                            onStopClick = onStopClick,
+                            onMapClick = { navController.navigate(Routes.MAP) },
+                        )
+                    }
+                }
+                composable(route = Routes.PLANNER) {
+                    NavigationDestinationSurface {
+                        PlannerScreen(stops = displayedStops, snapshot = snapshot)
                     }
                 }
                 composable(route = Routes.SETTINGS) {
@@ -619,6 +673,11 @@ private fun TransitNavigation(
                                 preferences.setShowStopsWithoutLines(show)
                                 showStopsWithoutLines = show
                             },
+                            markTrackableDepartures = markTrackableDepartures,
+                            onMarkTrackableDeparturesChange = { mark ->
+                                preferences.setMarkTrackableDepartures(mark)
+                                markTrackableDepartures = mark
+                            },
                         )
                     }
                 }
@@ -671,6 +730,7 @@ private fun TransitNavigation(
                             onBack = navController::popBackStack,
                             onLineClick = { line -> navController.navigate("${Routes.LINE_PREFIX}${stop.id}/$line") },
                             cityId = city.id,
+                            markTrackableDepartures = markTrackableDepartures,
                             repository = repository,
                             snapshot = snapshot,
                             isFavorite = stop.id in favoriteStopIds,
@@ -678,9 +738,43 @@ private fun TransitNavigation(
                                 favoriteStopIds = preferences.setFavoriteStop(city.id, stop.id, favorite)
                                 FavoriteDeparturesWidgetProvider.requestRefresh(context)
                             },
+                            liveUpdateTarget = departureToHighlight?.takeIf { it.stopId == stop.id },
+                            onVehicleMap = { departure ->
+                                navController.navigate(
+                                    "${Routes.VEHICLE_PREFIX}${departure.n}/${departure.departureId}/${Uri.encode(stop.id)}/${Uri.encode(departure.line)}",
+                                )
+                            },
                         )
                     }
                 }
+            composable(
+                route = Routes.VEHICLE,
+                arguments = listOf(
+                    navArgument("sideNumber") { type = NavType.IntType },
+                    navArgument("departureId") { type = NavType.IntType },
+                    navArgument("stopId") { type = NavType.StringType },
+                    navArgument("line") { type = NavType.StringType },
+                ),
+                enterTransition = { detailEnterFromRight() },
+                popExitTransition = { detailPopExitToRight() },
+            ) { entry ->
+                NavigationDestinationSurface {
+                    val sideNumber = entry.arguments?.getInt("sideNumber")
+                    val departureId = entry.arguments?.getInt("departureId")
+                    val stopId = entry.arguments?.getString("stopId")
+                    val line = entry.arguments?.getString("line")
+                    if (sideNumber == null || sideNumber == 0 || departureId == null || stopId.isNullOrBlank() || line.isNullOrBlank()) {
+                        MissingScreen("Nie znaleziono pojazdu.", navController::popBackStack)
+                    } else {
+                        VehicleMapScreen(
+                            target = VehicleMapTarget(sideNumber, departureId, stopId, line),
+                            repository = repository,
+                            snapshot = snapshot,
+                            onBack = navController::popBackStack,
+                        )
+                    }
+                }
+            }
             composable(
                 route = Routes.LINE,
                 arguments = listOf(
@@ -700,9 +794,51 @@ private fun TransitNavigation(
                             allStops = stops,
                             onBack = navController::popBackStack,
                             repository = repository,
+                            onFullscreenMap = { variant ->
+                                navController.navigate(
+                                    "${Routes.LINE_MAP_PREFIX}${stop.id}/${Uri.encode(line)}/${Uri.encode(variant.variantKey())}",
+                                )
+                            },
                         )
                     }
                 }
+            composable(
+                route = Routes.LINE_MAP,
+                arguments = listOf(
+                    navArgument("stopId") { type = NavType.StringType },
+                    navArgument("lineId") { type = NavType.StringType },
+                    navArgument("variantKey") { type = NavType.StringType },
+                ),
+                enterTransition = { detailEnterFromRight() },
+                popExitTransition = { detailPopExitToRight() },
+            ) { entry ->
+                NavigationDestinationSurface {
+                    val stop = stops.firstOrNull { it.id == entry.arguments?.getString("stopId") }
+                    val line = entry.arguments?.getString("lineId")
+                    val variantKey = entry.arguments?.getString("variantKey")
+                    val variant = line?.let { selectedLine ->
+                        stops.flatMap { it.timetables }
+                            .filter { it.line == selectedLine }
+                            .distinctBy { it.variantKey() }
+                            .firstOrNull { it.variantKey() == variantKey }
+                    }
+                    val routeStops = variant?.let { selectedVariant ->
+                        val stopsById = stops.associateBy { it.id }
+                        selectedVariant.routeStopIds.mapNotNull(stopsById::get)
+                    }.orEmpty()
+                    if (stop == null || line.isNullOrBlank() || variant == null) {
+                        MissingScreen("Nie znaleziono przebiegu linii.", navController::popBackStack)
+                    } else {
+                        FullscreenLineRouteMap(
+                            stopsForRoute = routeStops,
+                            line = line,
+                            direction = variant.direction,
+                            onBack = navController::popBackStack,
+                            onStopClick = onStopClick,
+                        )
+                    }
+                }
+            }
             composable(
                 route = Routes.TICKET,
                 arguments = listOf(navArgument("ticketId") { type = NavType.StringType }),
@@ -1133,6 +1269,8 @@ private fun SettingsDeveloperScreen(
     onBack: () -> Unit,
     showStopsWithoutLines: Boolean,
     onShowStopsWithoutLinesChange: (Boolean) -> Unit,
+    markTrackableDepartures: Boolean,
+    onMarkTrackableDeparturesChange: (Boolean) -> Unit,
 ) {
     Column(Modifier.fillMaxSize()) {
         SettingsDetailTopBar("Opcje deweloperskie", onBack)
@@ -1154,6 +1292,31 @@ private fun SettingsDeveloperScreen(
                         },
                         trailingContent = {
                             Switch(checked = showStopsWithoutLines, onCheckedChange = onShowStopsWithoutLinesChange)
+                        },
+                    )
+                }
+            }
+            item { Spacer(Modifier.height(8.dp)) }
+            item {
+                Surface(
+                    onClick = { onMarkTrackableDeparturesChange(!markTrackableDepartures) },
+                    shape = MaterialTheme.shapes.large,
+                    color = MaterialTheme.colorScheme.surfaceContainerLow,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    ListItem(
+                        headlineContent = { Text("Oznacz przejazdy n!=0") },
+                        supportingContent = {
+                            Text(
+                                "Oznacza przejazdy które mają opcję śledzenia. " +
+                                    "(Przejazdy dla których pole n zwracane przez `GetTimeTableReal` nie jest równe 0.)",
+                            )
+                        },
+                        trailingContent = {
+                            Switch(
+                                checked = markTrackableDepartures,
+                                onCheckedChange = onMarkTrackableDeparturesChange,
+                            )
                         },
                     )
                 }

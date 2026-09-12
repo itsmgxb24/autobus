@@ -96,5 +96,6 @@ class ScheduleSyncCoordinatorTest {
         override suspend fun realTimeDepartures(stopId: Int, groupId: Int): RealTimeDepartures = RealTimeDepartures("", null, emptyList())
         override suspend fun departureInfo(date: LocalDate, stopId: Int, uniqueTripId: Long): DepartureInfo? = null
         override suspend fun vehicles(line: String, directionCode: String): List<LiveVehicle> = emptyList()
+        override suspend fun vehiclesBySideNumber(sideNumber: Int): List<LiveVehicle> = emptyList()
     }
 }

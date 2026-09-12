@@ -2,6 +2,9 @@ package pl.walbrzych.autobus.data
 
 import java.time.Instant
 import java.time.LocalDate
+import java.time.LocalTime
+import java.time.Duration
+import java.time.format.DateTimeFormatter
 
 /** Metadata stored with the active, downloaded MyBus SQLite file. */
 data class ScheduleVersion(
@@ -34,6 +37,8 @@ data class RealTimeDeparture(
     val displayValue: String,
     val status: Int,
     val vehicleNumber: Int?,
+    /** Raw `n` from GetTimeTableReal; absent, blank and malformed values are zero. */
+    val n: Int = 0,
 ) {
     /** The server gives an ETA only when it explicitly sends the minutes form. */
     val etaMinutes: Int? = Regex("^\\s*(\\d+)\\s*min\\s*$", RegexOption.IGNORE_CASE)
@@ -41,6 +46,31 @@ data class RealTimeDeparture(
 
     val arrivalLabel: String = etaMinutes?.let { "Przyjazd za $it min" }
         ?: "Przyjazd: ${displayValue.trim()}"
+
+    /**
+     * Wording used exclusively by the real-time rows on the stop-detail screen.
+     * A non-zero `n` marks an API response eligible to show its ETA, but only for
+     * a future course strictly closer than thirty minutes.
+     */
+    fun stopDetailDepartureLabel(serverTime: LocalTime): String {
+        val scheduledTime = LocalTime.ofSecondOfDay(scheduledSeconds.toLong())
+        val secondsUntilDeparture = Duration.between(serverTime, scheduledTime).seconds
+        if (n != 0 && secondsUntilDeparture in 1 until THIRTY_MINUTES_SECONDS) {
+            etaMinutes?.let { return "Odjazd za $it min" }
+        }
+        return "Odjazd: ${displayTimeOrScheduledTime(scheduledTime)}"
+    }
+
+    private fun displayTimeOrScheduledTime(scheduledTime: LocalTime): String =
+        displayValue.toLocalTimeOrNull()?.format(TIME_FORMAT)
+            ?: scheduledTime.format(TIME_FORMAT)
+
+    private fun String.toLocalTimeOrNull(): LocalTime? = runCatching { LocalTime.parse(trim(), TIME_FORMAT) }.getOrNull()
+
+    private companion object {
+        const val THIRTY_MINUTES_SECONDS = 30 * 60L
+        val TIME_FORMAT: DateTimeFormatter = DateTimeFormatter.ofPattern("HH:mm")
+    }
 }
 
 data class RealTimeDepartures(
@@ -77,7 +107,19 @@ data class LiveVehicle(
     val predictedLongitude: Double?,
     val destination: String,
     val reportedAt: String,
+    /** Current course (`ik`) reported by GetVehicles, if the server supplies it. */
+    val activeCourseId: Long? = null,
+    /** Next course (`nk`), which must not be treated as the currently active course. */
+    val nextCourseId: Long? = null,
+    val status: String = "",
 )
+
+/** Human destination from GetVehicles `op`, without MyBus' optional via-stops suffix. */
+fun LiveVehicle.destinationLabel(): String = destination.trim()
+    .split(Regex("\\s+przez\\s+", RegexOption.IGNORE_CASE), limit = 2)
+    .firstOrNull()
+    .orEmpty()
+    .trim()
 
 sealed interface SyncResult {
     data class Downloaded(val snapshot: ScheduleSnapshot) : SyncResult

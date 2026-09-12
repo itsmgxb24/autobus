@@ -3,6 +3,8 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.POST_PROMOTED_NOTIFICATIONS" />
 
     <application
         android:allowBackup="false"
@@ -99,6 +101,9 @@
             android:exported="false" />
         <receiver
             android:name=".widget.LineDeparturesWidgetPinResultReceiver"
+            android:exported="false" />
+        <receiver
+            android:name=".live.DepartureLiveUpdateReceiver"
             android:exported="false" />
     </application>
 </manifest>

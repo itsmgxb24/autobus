@@ -39,6 +39,10 @@ class TransitRepository(
     suspend fun vehicles(line: String, directionCode: String): Result<List<LiveVehicle>> = withContext(Dispatchers.IO) {
         runCatching { service.vehicles(line, directionCode) }
     }
+
+    suspend fun vehiclesBySideNumber(sideNumber: Int): Result<List<LiveVehicle>> = withContext(Dispatchers.IO) {
+        runCatching { service.vehiclesBySideNumber(sideNumber) }
+    }
 }
 
 private val SyncResult.snapshot: ScheduleSnapshot

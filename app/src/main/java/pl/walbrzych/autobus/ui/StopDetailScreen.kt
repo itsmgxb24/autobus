@@ -2,16 +2,22 @@
 
 package pl.walbrzych.autobus.ui
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
@@ -24,7 +30,6 @@ import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.AssistChip
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -50,10 +55,17 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.font.Font
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
 import pl.walbrzych.autobus.data.DayType
 import pl.walbrzych.autobus.data.RealTimeDepartures
@@ -63,14 +75,16 @@ import pl.walbrzych.autobus.data.TimetableData
 import pl.walbrzych.autobus.data.TransitRepository
 import pl.walbrzych.autobus.data.localTimes
 import pl.walbrzych.autobus.data.nextScheduledDepartures
+import pl.walbrzych.autobus.live.DepartureLiveUpdate
+import pl.walbrzych.autobus.live.DepartureLiveUpdateManager
 import pl.walbrzych.autobus.ui.theme.AutoBusTheme
-import pl.walbrzych.autobus.widget.DepartureWidgetConfiguration
-import pl.walbrzych.autobus.widget.DepartureWidgetPinning
-import pl.walbrzych.autobus.widget.DeparturesWidgetPinning
-import pl.walbrzych.autobus.widget.LineDeparturesWidgetPinning
+import androidx.core.content.ContextCompat
 import java.time.DayOfWeek
+import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalDateTime
+import java.time.LocalTime
+import java.time.ZoneId
 
 private data class UpcomingDeparture(
     val timetable: TimetableData,
@@ -90,17 +104,16 @@ fun StopDetailScreen(
     onBack: () -> Unit,
     onLineClick: (String) -> Unit,
     cityId: Int? = null,
+    markTrackableDepartures: Boolean = false,
     repository: TransitRepository? = null,
     snapshot: ScheduleSnapshot? = null,
     isFavorite: Boolean = false,
     onFavoriteChange: (Boolean) -> Unit = {},
+    liveUpdateTarget: DepartureOpenTarget? = null,
+    onVehicleMap: (pl.walbrzych.autobus.data.RealTimeDeparture) -> Unit = {},
 ) {
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
-    var showCompactWidgetLinePicker by rememberSaveable(stop.id) { mutableStateOf(false) }
-    var showDeparturesWidgetLinePicker by rememberSaveable(stop.id) { mutableStateOf(false) }
-    var showLineSeriesWidgetPicker by rememberSaveable(stop.id) { mutableStateOf(false) }
     val lines = remember(stop) { stop.timetables.map { it.line }.distinct().sorted() }
-    val context = androidx.compose.ui.platform.LocalContext.current
     Column(Modifier.fillMaxSize()) {
         CenterAlignedTopAppBar(
             title = { Text("Przystanek", style = MaterialTheme.typography.titleMedium) },
@@ -125,38 +138,21 @@ fun StopDetailScreen(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 items(lines, key = { it }) { line ->
-                    AssistChip(
+                    OutlinedButton(
                         onClick = { onLineClick(line) },
-                        modifier = Modifier.widthIn(min = 48.dp),
-                        label = {
+                        modifier = Modifier.widthIn(min = 56.dp).height(40.dp),
+                        contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp),
+                    ) {
+                        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                             Text(
                                 line,
                                 maxLines = 1,
                                 softWrap = false,
                                 overflow = TextOverflow.Clip,
+                                textAlign = TextAlign.Center,
                             )
-                        },
-                    )
-                }
-            }
-            if (cityId != null && lines.isNotEmpty()) {
-                OutlinedButton(
-                    onClick = { showCompactWidgetLinePicker = true },
-                    modifier = Modifier.padding(top = 8.dp),
-                ) {
-                    Text("Dodaj mały widget")
-                }
-                TextButton(
-                    onClick = { showDeparturesWidgetLinePicker = true },
-                    modifier = Modifier.padding(top = 2.dp),
-                ) {
-                    Text("Dodaj duży widget odjazdów")
-                }
-                TextButton(
-                    onClick = { showLineSeriesWidgetPicker = true },
-                    modifier = Modifier.padding(top = 2.dp),
-                ) {
-                    Text("Dodaj widget kolejnych kursów")
+                        }
+                    }
                 }
             }
             Spacer(Modifier.height(12.dp))
@@ -165,126 +161,20 @@ fun StopDetailScreen(
             Tab(selected = selectedTab == 0, onClick = { selectedTab = 0 }, text = { Text("Odjazdy") })
             Tab(selected = selectedTab == 1, onClick = { selectedTab = 1 }, text = { Text("Rozkład jazdy") })
         }
-        if (selectedTab == 0) DeparturesTab(stop, snapshot, repository, onLineClick)
+        if (selectedTab == 0) {
+            DeparturesTab(
+                stop = stop,
+                snapshot = snapshot,
+                repository = repository,
+                onLineClick = onLineClick,
+                cityId = cityId,
+                markTrackableDepartures = markTrackableDepartures,
+                liveUpdateTarget = liveUpdateTarget,
+                onVehicleMap = onVehicleMap,
+            )
+        }
         else TimetableTab(stop, snapshot, onLineClick)
     }
-    if (showCompactWidgetLinePicker && cityId != null) {
-        WidgetLinePickerDialog(
-            stop = stop,
-            lines = lines,
-            allowsMultipleLines = false,
-            title = "Linia dla małego widgetu",
-            description = "${stop.name} · wybierz linię, której najbliższy odjazd ma być wyświetlany.",
-            onDismiss = { showCompactWidgetLinePicker = false },
-            onLinesSelected = { selectedLines ->
-                val requested = DepartureWidgetPinning.request(
-                    context,
-                    DepartureWidgetConfiguration(cityId, stop.id, selectedLines),
-                )
-                Toast.makeText(
-                    context,
-                    if (requested) "Wybierz miejsce widgetu na ekranie głównym." else "Ten launcher nie obsługuje przypinania widgetów.",
-                    Toast.LENGTH_LONG,
-                ).show()
-                showCompactWidgetLinePicker = false
-            },
-        )
-    }
-    if (showDeparturesWidgetLinePicker && cityId != null) {
-        WidgetLinePickerDialog(
-            stop = stop,
-            lines = lines,
-            allowsMultipleLines = true,
-            title = "Linie dla dużego widgetu",
-            description = "${stop.name} · zaznacz linie do śledzenia albo pomiń, aby wyświetlić cztery najbliższe odjazdy.",
-            onDismiss = { showDeparturesWidgetLinePicker = false },
-            onLinesSelected = { selectedLines ->
-                val requested = DeparturesWidgetPinning.request(
-                    context,
-                    DepartureWidgetConfiguration(cityId, stop.id, selectedLines),
-                )
-                Toast.makeText(
-                    context,
-                    if (requested) "Wybierz miejsce widgetu na ekranie głównym." else "Ten launcher nie obsługuje przypinania widgetów.",
-                    Toast.LENGTH_LONG,
-                ).show()
-                showDeparturesWidgetLinePicker = false
-            },
-        )
-    }
-    if (showLineSeriesWidgetPicker && cityId != null) {
-        WidgetLinePickerDialog(
-            stop = stop,
-            lines = lines,
-            allowsMultipleLines = false,
-            title = "Linia dla kolejnych kursów",
-            description = "${stop.name} · wybierz linię, aby wyświetlić trzy kolejne kursy.",
-            onDismiss = { showLineSeriesWidgetPicker = false },
-            onLinesSelected = { selectedLines ->
-                val requested = LineDeparturesWidgetPinning.request(
-                    context,
-                    DepartureWidgetConfiguration(cityId, stop.id, selectedLines),
-                )
-                Toast.makeText(
-                    context,
-                    if (requested) "Wybierz miejsce widgetu na ekranie głównym." else "Ten launcher nie obsługuje przypinania widgetów.",
-                    Toast.LENGTH_LONG,
-                ).show()
-                showLineSeriesWidgetPicker = false
-            },
-        )
-    }
-}
-
-@Composable
-private fun WidgetLinePickerDialog(
-    stop: StopData,
-    lines: List<String>,
-    allowsMultipleLines: Boolean,
-    title: String,
-    description: String,
-    onDismiss: () -> Unit,
-    onLinesSelected: (Set<String>) -> Unit,
-) {
-    var selectedLineList by rememberSaveable(stop.id) { mutableStateOf(emptyList<String>()) }
-    val selectedLines = selectedLineList.toSet()
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(title) },
-        text = {
-            LazyColumn(
-                modifier = Modifier.heightIn(max = 320.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
-            ) {
-                item {
-                    Text(description, style = MaterialTheme.typography.bodyMedium)
-                }
-                items(lines, key = { it }) { line ->
-                    FilterChip(
-                        selected = line in selectedLines,
-                        onClick = {
-                            selectedLineList = if (allowsMultipleLines) {
-                                if (line in selectedLines) selectedLineList - line else selectedLineList + line
-                            } else {
-                                listOf(line)
-                            }
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                        label = { Text(line, fontWeight = FontWeight.Bold) },
-                    )
-                }
-            }
-        },
-        confirmButton = {
-            TextButton(
-                enabled = allowsMultipleLines || selectedLines.isNotEmpty(),
-                onClick = { onLinesSelected(selectedLines) },
-            ) {
-                Text(if (allowsMultipleLines && selectedLines.isEmpty()) "Pomiń" else "Dodaj widget")
-            }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Anuluj") } },
-    )
 }
 
 @Composable
@@ -293,7 +183,12 @@ private fun DeparturesTab(
     snapshot: ScheduleSnapshot?,
     repository: TransitRepository?,
     onLineClick: (String) -> Unit,
+    cityId: Int?,
+    markTrackableDepartures: Boolean,
+    liveUpdateTarget: DepartureOpenTarget?,
+    onVehicleMap: (pl.walbrzych.autobus.data.RealTimeDeparture) -> Unit,
 ) {
+    val context = LocalContext.current.applicationContext
     val now by androidx.compose.runtime.produceState(LocalDateTime.now(), stop.id) {
         while (true) {
             value = LocalDateTime.now()
@@ -302,6 +197,28 @@ private fun DeparturesTab(
     }
     var refreshKey by rememberSaveable(stop.id) { mutableIntStateOf(0) }
     var realtime by remember(stop.id, repository) { mutableStateOf<RealtimeState>(RealtimeState.Loading) }
+    var pendingTracking by remember { mutableStateOf<DepartureLiveUpdate?>(null) }
+    val notificationPermission = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) { granted ->
+        val requested = pendingTracking
+        pendingTracking = null
+        if (granted && requested != null) {
+            DepartureLiveUpdateManager.start(context, requested)
+        } else if (requested != null) {
+            Toast.makeText(context, "Aby śledzić odjazd, zezwól na powiadomienia.", Toast.LENGTH_LONG).show()
+        }
+    }
+    val startTracking: (DepartureLiveUpdate) -> Unit = { update ->
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+        ) {
+            pendingTracking = update
+            notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+        } else {
+            DepartureLiveUpdateManager.start(context, update)
+        }
+    }
     LaunchedEffect(stop.id, repository, refreshKey) {
         realtime = if (repository == null) RealtimeState.Unavailable("Podgląd nie łączy się z serwerem.")
         else repository.realTimeDepartures(stop.id).fold(
@@ -329,14 +246,42 @@ private fun DeparturesTab(
                 state.data.notice?.let { notice -> item { Text(notice, style = MaterialTheme.typography.bodySmall) } }
                 if (state.data.departures.isEmpty()) item { Text("Serwer nie zwrócił bieżących odjazdów.") }
                 else items(state.data.departures, key = { it.departureId }) { departure ->
+                    val update = cityId?.let {
+                        realtimeTrackingUpdate(it, stop, departure, now)
+                    }
                     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)) {
                         Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
                             AssistChip(onClick = { onLineClick(departure.line) }, label = { Text(departure.line, fontWeight = FontWeight.Bold) })
                             Spacer(Modifier.width(10.dp))
                             Column(Modifier.weight(1f)) {
                                 Text(departure.direction, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                // HH:mm is a scheduled arrival supplied by the server, not a calculated ETA.
-                                Text(departure.arrivalLabel, color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelMedium)
+                                Text(
+                                    departure.stopDetailDepartureLabel(
+                                        state.data.serverTime.toServerTimeOrNull() ?: now.toLocalTime(),
+                                    ),
+                                    color = MaterialTheme.colorScheme.primary,
+                                    style = MaterialTheme.typography.labelMedium,
+                                )
+                            }
+                            update?.let {
+                                val markTrackable = markTrackableDepartures && departure.n != 0
+                                if (markTrackable) {
+                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                        TrackDepartureButton(
+                                            tracked = liveUpdateTarget.matches(it),
+                                            compact = true,
+                                            onClick = { startTracking(it) },
+                                        )
+                                        TrackableDepartureMarker(
+                                            onClick = { onVehicleMap(departure) },
+                                        )
+                                    }
+                                } else {
+                                    TrackDepartureButton(
+                                        tracked = liveUpdateTarget.matches(it),
+                                        onClick = { startTracking(it) },
+                                    )
+                                }
                             }
                         }
                     }
@@ -358,13 +303,30 @@ private fun DeparturesTab(
         }
         item { Text("Rozkład zapisany lokalnie", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary) }
         if (departures.isEmpty()) item { Text("Brak dalszych kursów w zapisanym kalendarzu.") }
-        else items(departures) { departure -> DepartureCard(departure, onLineClick) }
+        else items(departures) { departure ->
+            val update = cityId?.let { scheduledTrackingUpdate(it, stop, departure) }
+            DepartureCard(
+                departure = departure,
+                onLineClick = onLineClick,
+                onTrack = update?.let { { startTracking(it) } },
+                tracked = update?.let { liveUpdateTarget.matches(it) } == true,
+            )
+        }
     }
 }
 
 @Composable
-private fun DepartureCard(departure: UpcomingDeparture, onLineClick: (String) -> Unit) {
-    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)) {
+private fun DepartureCard(
+    departure: UpcomingDeparture,
+    onLineClick: (String) -> Unit,
+    onTrack: (() -> Unit)? = null,
+    tracked: Boolean = false,
+) {
+    Card(
+        colors = CardDefaults.cardColors(
+            containerColor = if (tracked) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceContainerLow,
+        ),
+    ) {
         Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
             AssistChip(onClick = { onLineClick(departure.timetable.line) }, label = { Text(departure.timetable.line, fontWeight = FontWeight.Bold) })
             Spacer(Modifier.width(10.dp))
@@ -379,9 +341,91 @@ private fun DepartureCard(departure: UpcomingDeparture, onLineClick: (String) ->
                     color = MaterialTheme.colorScheme.primary,
                 )
             }
+            onTrack?.let { TrackDepartureButton(tracked = tracked, onClick = it) }
         }
     }
 }
+
+@Composable
+private fun TrackDepartureButton(tracked: Boolean, compact: Boolean = false, onClick: () -> Unit) {
+    val description = if (tracked) "Śledzony odjazd" else "Śledź ten odjazd na żywo"
+    IconButton(
+        onClick = onClick,
+        modifier = Modifier
+            .size(if (compact) 32.dp else 40.dp)
+            .semantics { contentDescription = description },
+    ) {
+        Text(
+            text = "\uEB47",
+            fontFamily = trackableMarkerFont,
+            fontSize = if (compact) 21.sp else 24.sp,
+            color = if (tracked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+@Composable
+private fun TrackableDepartureMarker(onClick: () -> Unit) {
+    IconButton(
+        onClick = onClick,
+        modifier = Modifier
+            .size(32.dp)
+            .semantics { contentDescription = "Pokaż pozycję pojazdu na mapie" },
+    ) {
+        Text(
+            text = "\uF05B",
+            fontFamily = trackableMarkerFont,
+            fontSize = 18.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+private val trackableMarkerFont = FontFamily(Font(pl.walbrzych.autobus.R.font.commit_mono_nerd_font_propo_regular))
+
+private fun realtimeTrackingUpdate(
+    cityId: Int,
+    stop: StopData,
+    departure: pl.walbrzych.autobus.data.RealTimeDeparture,
+    now: LocalDateTime,
+): DepartureLiveUpdate = DepartureLiveUpdate(
+    cityId = cityId,
+    stopId = stop.id,
+    stopName = stop.name,
+    line = departure.line,
+    direction = departure.direction,
+    scheduledAtMillis = departure.scheduledInstant(now).toEpochMilli(),
+    scheduledSeconds = departure.scheduledSeconds,
+    tripId = departure.tripId,
+)
+
+private fun scheduledTrackingUpdate(
+    cityId: Int,
+    stop: StopData,
+    departure: UpcomingDeparture,
+): DepartureLiveUpdate = DepartureLiveUpdate(
+    cityId = cityId,
+    stopId = stop.id,
+    stopName = stop.name,
+    line = departure.timetable.line,
+    direction = departure.timetable.direction,
+    scheduledAtMillis = departure.dateTime.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli(),
+    scheduledSeconds = departure.dateTime.toLocalTime().toSecondOfDay(),
+)
+
+private fun pl.walbrzych.autobus.data.RealTimeDeparture.scheduledInstant(now: LocalDateTime): Instant {
+    val time = LocalTime.ofSecondOfDay(scheduledSeconds.toLong())
+    var scheduled = LocalDateTime.of(now.toLocalDate(), time)
+    if (scheduled.isBefore(now.minusMinutes(1))) scheduled = scheduled.plusDays(1)
+    return scheduled.atZone(ZoneId.systemDefault()).toInstant()
+}
+
+private fun DepartureOpenTarget?.matches(update: DepartureLiveUpdate): Boolean =
+    this != null && cityId == update.cityId && stopId == update.stopId && line == update.line &&
+        scheduledAtMillis == update.scheduledAtMillis
+
+private fun String.toServerTimeOrNull(): LocalTime? =
+    runCatching { LocalTime.parse(trim()) }.getOrNull()
 
 @Composable
 private fun TimetableTab(stop: StopData, snapshot: ScheduleSnapshot?, onLineClick: (String) -> Unit) {

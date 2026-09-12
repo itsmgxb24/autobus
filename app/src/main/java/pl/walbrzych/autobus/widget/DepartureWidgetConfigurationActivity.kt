@@ -56,6 +56,7 @@ import pl.walbrzych.autobus.data.ScheduleSnapshot
 import pl.walbrzych.autobus.data.StopData
 import pl.walbrzych.autobus.data.UserInterfacePreferences
 import pl.walbrzych.autobus.data.filterStopsForDisplay
+import pl.walbrzych.autobus.ui.FullscreenStopMap
 import pl.walbrzych.autobus.ui.OfflineMap
 import pl.walbrzych.autobus.ui.theme.AutoBusTheme
 
@@ -143,6 +144,7 @@ private fun DepartureWidgetConfigurationScreen(
     var snapshot by remember(city?.id) { mutableStateOf<ScheduleSnapshot?>(null) }
     var loading by remember(city?.id) { mutableStateOf(city != null) }
     var selectedStop by remember { mutableStateOf<StopData?>(null) }
+    var stopMapOpen by rememberSaveable { mutableStateOf(false) }
 
     LaunchedEffect(city?.id) {
         snapshot = city?.let { selectedCity ->
@@ -155,9 +157,23 @@ private fun DepartureWidgetConfigurationScreen(
             selectedStop = snapshot?.stops?.firstOrNull { it.id == initialStopId }
         }
     }
-    BackHandler(enabled = selectedStop != null) { selectedStop = null }
+    BackHandler(enabled = stopMapOpen) { stopMapOpen = false }
+    BackHandler(enabled = selectedStop != null && !stopMapOpen) { selectedStop = null }
     val selectableStops = remember(snapshot, preferences.showStopsWithoutLines()) {
         snapshot?.let { filterStopsForDisplay(it.stops, preferences.showStopsWithoutLines()) }.orEmpty()
+    }
+
+    if (stopMapOpen) {
+        FullscreenStopMap(
+            stops = selectableStops,
+            userLocation = null,
+            onBack = { stopMapOpen = false },
+            onStopClick = { stop ->
+                stopMapOpen = false
+                selectedStop = stop
+            },
+        )
+        return
     }
 
     Scaffold(
@@ -194,6 +210,7 @@ private fun DepartureWidgetConfigurationScreen(
                 stops = selectableStops,
                 modifier = Modifier.padding(padding),
                 onStopSelected = { selectedStop = it },
+                onOpenMap = { stopMapOpen = true },
             )
             else -> LinePicker(
                 cityId = city.id,
@@ -209,7 +226,12 @@ private fun DepartureWidgetConfigurationScreen(
 }
 
 @Composable
-private fun StopPicker(stops: List<StopData>, modifier: Modifier, onStopSelected: (StopData) -> Unit) {
+private fun StopPicker(
+    stops: List<StopData>,
+    modifier: Modifier,
+    onStopSelected: (StopData) -> Unit,
+    onOpenMap: () -> Unit,
+) {
     var query by rememberSaveable { mutableStateOf("") }
     val matchingStops = remember(stops, query) {
         stops.filter { query.isBlank() || it.name.contains(query, ignoreCase = true) }
@@ -234,7 +256,8 @@ private fun StopPicker(stops: List<StopData>, modifier: Modifier, onStopSelected
                 stops = stops,
                 onStopClick = onStopSelected,
                 modifier = Modifier.fillMaxWidth().height(240.dp),
-                interactive = true,
+                onMapClick = onOpenMap,
+                interactive = false,
             )
         }
         item {

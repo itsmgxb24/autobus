@@ -43,6 +43,12 @@ class UserInterfacePreferences(context: Context) {
         preferences.edit(commit = true) { putBoolean(SHOW_STOPS_WITHOUT_LINES, show) }
     }
 
+    fun markTrackableDepartures(): Boolean = preferences.getBoolean(MARK_TRACKABLE_DEPARTURES, false)
+
+    fun setMarkTrackableDepartures(mark: Boolean) {
+        preferences.edit(commit = true) { putBoolean(MARK_TRACKABLE_DEPARTURES, mark) }
+    }
+
     fun homeScreenConfiguration(): HomeScreenConfiguration = normalizedHomeScreenConfiguration(
         preferences.getString(START_TILE_ORDER, null)?.split(ORDER_SEPARATOR)?.filter(String::isNotBlank),
         preferences.getStringSet(START_TILE_VISIBLE, null),
@@ -73,6 +79,7 @@ class UserInterfacePreferences(context: Context) {
     private companion object {
         const val PREFERENCES = "user_interface_preferences"
         const val SHOW_STOPS_WITHOUT_LINES = "show_stops_without_lines"
+        const val MARK_TRACKABLE_DEPARTURES = "mark_trackable_departures"
         const val START_TILE_ORDER = "start_tile_order"
         const val START_TILE_VISIBLE = "start_tile_visible"
         const val FAVORITES_PREFIX = "favorite_stops_"

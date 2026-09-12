@@ -40,7 +40,11 @@ import pl.walbrzych.autobus.ui.theme.AutoBusTheme
  * KanarAlert backend, so it exposes downloaded stops but never fabricates reports.
  */
 @Composable
-fun AlertScreen(stops: List<StopData>, onStopClick: (StopData) -> Unit) {
+fun AlertScreen(
+    stops: List<StopData>,
+    onStopClick: (StopData) -> Unit,
+    onMapClick: () -> Unit = {},
+) {
     Column(Modifier.fillMaxSize()) {
         TopAppBar(
             title = { Text("KanarAlert", fontWeight = FontWeight.SemiBold) },
@@ -65,6 +69,8 @@ fun AlertScreen(stops: List<StopData>, onStopClick: (StopData) -> Unit) {
                 OfflineMap(
                     stops = stops,
                     onStopClick = onStopClick,
+                    onMapClick = onMapClick,
+                    interactive = false,
                     modifier = Modifier.fillMaxWidth().height(260.dp),
                 )
             }

@@ -54,6 +54,7 @@ fun LineDetailScreen(
     allStops: List<StopData>,
     onBack: () -> Unit,
     repository: TransitRepository,
+    onFullscreenMap: (TimetableData) -> Unit,
 ) {
     val variants = remember(allStops, line) {
         allStops.flatMap { it.timetables }.filter { it.line == line }
@@ -129,6 +130,8 @@ fun LineDetailScreen(
                     line = line,
                     direction = selectedVariant?.direction.orEmpty(),
                     vehicles = (vehicleState as? VehicleState.Loaded)?.vehicles.orEmpty(),
+                    onMapClick = { selectedVariant?.let(onFullscreenMap) },
+                    interactive = false,
                     modifier = Modifier.fillMaxWidth().height(270.dp),
                 )
             }
@@ -194,12 +197,12 @@ private fun VehicleSection(state: VehicleState, directionCode: String, onRequest
                 Icon(Icons.Default.MyLocation, null)
                 Text(" Sprawdź pozycje na żywo")
             }
-            if (directionCode.isBlank()) Text("Brak kodu kierunku — zapytanie nie zostanie wysłane.", style = MaterialTheme.typography.bodySmall)
+            if (directionCode.isBlank()) Text("Brak kodu kierunku - zapytanie nie zostanie wysłane.", style = MaterialTheme.typography.bodySmall)
         }
     }
 }
 
-private fun TimetableData.variantKey(): String = "$variant|$directionCode|$direction"
+fun TimetableData.variantKey(): String = "$variant|$directionCode|$direction"
 
 private sealed interface VehicleState {
     data object Idle : VehicleState
