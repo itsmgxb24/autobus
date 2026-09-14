@@ -1,6 +1,6 @@
 @file:OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 
-package pl.walbrzych.autobus.ui
+package pl.ruby.lubiechowlabs.autobus.ui
 
 import android.graphics.Bitmap
 import androidx.compose.animation.core.Animatable
@@ -76,9 +76,9 @@ import java.time.Instant
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 import kotlin.math.roundToInt
-import pl.walbrzych.autobus.R
-import pl.walbrzych.autobus.data.CityConfig
-import pl.walbrzych.autobus.data.TransitTime
+import pl.ruby.lubiechowlabs.autobus.R
+import pl.ruby.lubiechowlabs.autobus.data.CityConfig
+import pl.ruby.lubiechowlabs.autobus.data.TransitTime
 
 data class Ticket(
     val id: String,

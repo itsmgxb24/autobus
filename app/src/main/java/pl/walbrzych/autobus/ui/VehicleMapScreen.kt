@@ -1,6 +1,6 @@
 @file:OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 
-package pl.walbrzych.autobus.ui
+package pl.ruby.lubiechowlabs.autobus.ui
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -38,13 +38,13 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
 import kotlinx.coroutines.delay
-import pl.walbrzych.autobus.R
-import pl.walbrzych.autobus.data.LiveVehicle
-import pl.walbrzych.autobus.data.ScheduleSnapshot
-import pl.walbrzych.autobus.data.TransitRepository
-import pl.walbrzych.autobus.data.destinationLabel
-import pl.walbrzych.autobus.data.selectVehicleForDeparture
-import pl.walbrzych.autobus.data.vehicleRouteProgress
+import pl.ruby.lubiechowlabs.autobus.R
+import pl.ruby.lubiechowlabs.autobus.data.LiveVehicle
+import pl.ruby.lubiechowlabs.autobus.data.ScheduleSnapshot
+import pl.ruby.lubiechowlabs.autobus.data.TransitRepository
+import pl.ruby.lubiechowlabs.autobus.data.destinationLabel
+import pl.ruby.lubiechowlabs.autobus.data.selectVehicleForDeparture
+import pl.ruby.lubiechowlabs.autobus.data.vehicleRouteProgress
 import java.time.LocalTime
 
 data class VehicleMapTarget(
@@ -66,7 +66,7 @@ private data class VehicleMapContent(
     val nextStopName: String?,
     val nextStopId: String?,
     val etaLabel: String?,
-    val routeStops: List<pl.walbrzych.autobus.data.StopData>,
+    val routeStops: List<pl.ruby.lubiechowlabs.autobus.data.StopData>,
 )
 
 /** Displays one server-confirmed vehicle and keeps its marker fresh only while resumed. */
@@ -205,7 +205,7 @@ private suspend fun vehicleMapContent(
     )
 }
 
-private fun pl.walbrzych.autobus.data.RealTimeDeparture.mapEtaLabel(serverTime: String): String? {
+private fun pl.ruby.lubiechowlabs.autobus.data.RealTimeDeparture.mapEtaLabel(serverTime: String): String? {
     val serverLocalTime = runCatching { LocalTime.parse(serverTime.trim()) }.getOrNull() ?: return null
     val departureLabel = stopDetailDepartureLabel(serverLocalTime)
     return if (departureLabel.startsWith("Odjazd za ")) {

@@ -1,6 +1,6 @@
 @file:Suppress("DEPRECATION")
 
-package pl.walbrzych.autobus.ui
+package pl.ruby.lubiechowlabs.autobus.ui
 
 import android.Manifest
 import android.annotation.SuppressLint

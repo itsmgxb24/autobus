@@ -1,9 +1,9 @@
-package pl.walbrzych.autobus.ui
+package pl.ruby.lubiechowlabs.autobus.ui
 
 import android.content.Intent
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import pl.walbrzych.autobus.live.DepartureLiveUpdateManager
+import pl.ruby.lubiechowlabs.autobus.live.DepartureLiveUpdateManager
 
 data class DepartureOpenTarget(
     val cityId: Int,

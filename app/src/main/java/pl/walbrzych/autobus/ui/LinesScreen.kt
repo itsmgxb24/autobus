@@ -1,6 +1,6 @@
 @file:OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 
-package pl.walbrzych.autobus.ui
+package pl.ruby.lubiechowlabs.autobus.ui
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -37,7 +37,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import pl.walbrzych.autobus.data.StopData
+import pl.ruby.lubiechowlabs.autobus.data.StopData
 
 /** The complete line index comes from ODJAZDY/KIERUNKI in the downloaded schedule. */
 @Composable

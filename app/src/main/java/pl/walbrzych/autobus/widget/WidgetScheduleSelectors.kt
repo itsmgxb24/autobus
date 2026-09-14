@@ -1,10 +1,10 @@
-package pl.walbrzych.autobus.widget
+package pl.ruby.lubiechowlabs.autobus.widget
 
 import java.time.LocalDateTime
-import pl.walbrzych.autobus.data.ScheduleSnapshot
-import pl.walbrzych.autobus.data.ScheduledDeparture
-import pl.walbrzych.autobus.data.StopData
-import pl.walbrzych.autobus.data.nextScheduledDepartures
+import pl.ruby.lubiechowlabs.autobus.data.ScheduleSnapshot
+import pl.ruby.lubiechowlabs.autobus.data.ScheduledDeparture
+import pl.ruby.lubiechowlabs.autobus.data.StopData
+import pl.ruby.lubiechowlabs.autobus.data.nextScheduledDepartures
 
 /** Static courses for one line, expanded with the same downloaded calendar as the app. */
 internal fun selectLineWidgetDepartures(

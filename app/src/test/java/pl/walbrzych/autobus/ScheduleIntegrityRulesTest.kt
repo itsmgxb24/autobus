@@ -1,8 +1,8 @@
-package pl.walbrzych.autobus
+package pl.ruby.lubiechowlabs.autobus
 
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import pl.walbrzych.autobus.data.ScheduleIntegrityRules
+import pl.ruby.lubiechowlabs.autobus.data.ScheduleIntegrityRules
 
 class ScheduleIntegrityRulesTest {
     @Test

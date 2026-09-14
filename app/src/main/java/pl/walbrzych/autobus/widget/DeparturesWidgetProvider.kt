@@ -1,4 +1,4 @@
-package pl.walbrzych.autobus.widget
+package pl.ruby.lubiechowlabs.autobus.widget
 
 import android.app.AlarmManager
 import android.app.PendingIntent
@@ -18,16 +18,16 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
-import pl.walbrzych.autobus.MainActivity
-import pl.walbrzych.autobus.R
-import pl.walbrzych.autobus.data.CityCatalog
-import pl.walbrzych.autobus.data.RealTimeDeparture
-import pl.walbrzych.autobus.data.cachedScheduleForCity
-import pl.walbrzych.autobus.data.ScheduleSnapshot
-import pl.walbrzych.autobus.data.ScheduledDeparture
-import pl.walbrzych.autobus.data.TransitRepository
-import pl.walbrzych.autobus.data.TransitTime
-import pl.walbrzych.autobus.data.nextScheduledDepartures
+import pl.ruby.lubiechowlabs.autobus.MainActivity
+import pl.ruby.lubiechowlabs.autobus.R
+import pl.ruby.lubiechowlabs.autobus.data.CityCatalog
+import pl.ruby.lubiechowlabs.autobus.data.RealTimeDeparture
+import pl.ruby.lubiechowlabs.autobus.data.cachedScheduleForCity
+import pl.ruby.lubiechowlabs.autobus.data.ScheduleSnapshot
+import pl.ruby.lubiechowlabs.autobus.data.ScheduledDeparture
+import pl.ruby.lubiechowlabs.autobus.data.TransitRepository
+import pl.ruby.lubiechowlabs.autobus.data.TransitTime
+import pl.ruby.lubiechowlabs.autobus.data.nextScheduledDepartures
 
 /** Material-styled 4×2 home-screen widget for four nearest departures at one stop. */
 class DeparturesWidgetProvider : AppWidgetProvider() {
@@ -241,7 +241,7 @@ class DeparturesWidgetProvider : AppWidgetProvider() {
     private data class WidgetRowIds(val root: Int, val line: Int, val direction: Int, val time: Int)
 
     companion object {
-        private const val ACTION_REFRESH = "pl.walbrzych.autobus.widget.DEPARTURES_REFRESH"
+        private const val ACTION_REFRESH = "pl.ruby.lubiechowlabs.autobus.widget.DEPARTURES_REFRESH"
         private const val NO_DEPARTURE_RETRY_SECONDS = 30 * 60L
         private const val MAX_DEPARTURES = 4
         private val UPDATE_TIME_FORMAT: DateTimeFormatter = DateTimeFormatter.ofPattern("HH:mm")
@@ -266,7 +266,7 @@ class DeparturesWidgetProvider : AppWidgetProvider() {
 /** Chooses the same four chronologically nearest static departures as the local timetable. */
 internal fun selectWidgetScheduledDepartures(
     snapshot: ScheduleSnapshot,
-    stop: pl.walbrzych.autobus.data.StopData,
+    stop: pl.ruby.lubiechowlabs.autobus.data.StopData,
     lines: Set<String>,
     now: LocalDateTime,
 ): List<ScheduledDeparture> =
@@ -310,7 +310,7 @@ private object DeparturesWidgetRefreshScheduler {
     private fun pendingIntent(context: Context): PendingIntent = PendingIntent.getBroadcast(
         context,
         REQUEST_CODE,
-        Intent(context, DeparturesWidgetProvider::class.java).setAction("pl.walbrzych.autobus.widget.DEPARTURES_REFRESH"),
+        Intent(context, DeparturesWidgetProvider::class.java).setAction("pl.ruby.lubiechowlabs.autobus.widget.DEPARTURES_REFRESH"),
         PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
     )
 }

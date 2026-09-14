@@ -1,4 +1,4 @@
-package pl.walbrzych.autobus.widget
+package pl.ruby.lubiechowlabs.autobus.widget
 
 import android.app.AlarmManager
 import android.app.PendingIntent
@@ -15,13 +15,13 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
-import pl.walbrzych.autobus.MainActivity
-import pl.walbrzych.autobus.R
-import pl.walbrzych.autobus.data.CityCatalog
-import pl.walbrzych.autobus.data.cachedScheduleForCity
-import pl.walbrzych.autobus.data.TransitRepository
-import pl.walbrzych.autobus.data.TransitTime
-import pl.walbrzych.autobus.data.nextScheduledDepartures
+import pl.ruby.lubiechowlabs.autobus.MainActivity
+import pl.ruby.lubiechowlabs.autobus.R
+import pl.ruby.lubiechowlabs.autobus.data.CityCatalog
+import pl.ruby.lubiechowlabs.autobus.data.cachedScheduleForCity
+import pl.ruby.lubiechowlabs.autobus.data.TransitRepository
+import pl.ruby.lubiechowlabs.autobus.data.TransitTime
+import pl.ruby.lubiechowlabs.autobus.data.nextScheduledDepartures
 
 /** Original compact 2×2 widget: one chosen line and its next departure. */
 class DepartureWidgetProvider : AppWidgetProvider() {
@@ -139,7 +139,7 @@ class DepartureWidgetProvider : AppWidgetProvider() {
     )
 
     companion object {
-        private const val ACTION_REFRESH = "pl.walbrzych.autobus.widget.COMPACT_REFRESH"
+        private const val ACTION_REFRESH = "pl.ruby.lubiechowlabs.autobus.widget.COMPACT_REFRESH"
         private const val NO_DEPARTURE_RETRY_SECONDS = 30 * 60L
         private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
@@ -181,7 +181,7 @@ private object CompactWidgetRefreshScheduler {
     private fun pendingIntent(context: Context): PendingIntent = PendingIntent.getBroadcast(
         context,
         REQUEST_CODE,
-        Intent(context, DepartureWidgetProvider::class.java).setAction("pl.walbrzych.autobus.widget.COMPACT_REFRESH"),
+        Intent(context, DepartureWidgetProvider::class.java).setAction("pl.ruby.lubiechowlabs.autobus.widget.COMPACT_REFRESH"),
         PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
     )
 }

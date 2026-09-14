@@ -1,12 +1,12 @@
-package pl.walbrzych.autobus
+package pl.ruby.lubiechowlabs.autobus
 
 import java.time.Instant
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import pl.walbrzych.autobus.data.ScheduleSnapshot
-import pl.walbrzych.autobus.data.ScheduleVersion
-import pl.walbrzych.autobus.data.StopData
+import pl.ruby.lubiechowlabs.autobus.data.ScheduleSnapshot
+import pl.ruby.lubiechowlabs.autobus.data.ScheduleVersion
+import pl.ruby.lubiechowlabs.autobus.data.StopData
 
 class RuntimeScheduleScopeTest {
     @Test

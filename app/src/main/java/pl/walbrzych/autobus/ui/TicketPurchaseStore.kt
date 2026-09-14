@@ -1,4 +1,4 @@
-package pl.walbrzych.autobus.ui
+package pl.ruby.lubiechowlabs.autobus.ui
 
 import android.content.Context
 import androidx.core.content.edit

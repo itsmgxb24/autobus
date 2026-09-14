@@ -1,4 +1,4 @@
-package pl.walbrzych.autobus.data
+package pl.ruby.lubiechowlabs.autobus.data
 
 /** Database-independent checks shared by SQLite validation and JVM tests. */
 object ScheduleIntegrityRules {

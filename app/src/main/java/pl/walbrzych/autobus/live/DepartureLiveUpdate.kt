@@ -1,4 +1,4 @@
-package pl.walbrzych.autobus.live
+package pl.ruby.lubiechowlabs.autobus.live
 
 import android.Manifest
 import android.annotation.SuppressLint
@@ -22,12 +22,12 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
-import pl.walbrzych.autobus.MainActivity
-import pl.walbrzych.autobus.R
-import pl.walbrzych.autobus.data.CityCatalog
-import pl.walbrzych.autobus.data.RealTimeDeparture
-import pl.walbrzych.autobus.data.TransitRepository
-import pl.walbrzych.autobus.data.TransitTime
+import pl.ruby.lubiechowlabs.autobus.MainActivity
+import pl.ruby.lubiechowlabs.autobus.R
+import pl.ruby.lubiechowlabs.autobus.data.CityCatalog
+import pl.ruby.lubiechowlabs.autobus.data.RealTimeDeparture
+import pl.ruby.lubiechowlabs.autobus.data.TransitRepository
+import pl.ruby.lubiechowlabs.autobus.data.TransitTime
 
 /** Persistent identity of the exact scheduled course being tracked by the user. */
 data class DepartureLiveUpdate(
@@ -47,13 +47,13 @@ data class DepartureLiveUpdate(
  * RemoteViews are used, preserving promoted-notification eligibility.
  */
 object DepartureLiveUpdateManager {
-    const val ACTION_REFRESH = "pl.walbrzych.autobus.live.REFRESH"
-    const val ACTION_CANCEL = "pl.walbrzych.autobus.live.CANCEL"
-    const val ACTION_OPEN = "pl.walbrzych.autobus.live.OPEN"
-    const val EXTRA_CITY_ID = "pl.walbrzych.autobus.live.CITY_ID"
-    const val EXTRA_STOP_ID = "pl.walbrzych.autobus.live.STOP_ID"
-    const val EXTRA_LINE = "pl.walbrzych.autobus.live.LINE"
-    const val EXTRA_SCHEDULED_AT = "pl.walbrzych.autobus.live.SCHEDULED_AT"
+    const val ACTION_REFRESH = "pl.ruby.lubiechowlabs.autobus.live.REFRESH"
+    const val ACTION_CANCEL = "pl.ruby.lubiechowlabs.autobus.live.CANCEL"
+    const val ACTION_OPEN = "pl.ruby.lubiechowlabs.autobus.live.OPEN"
+    const val EXTRA_CITY_ID = "pl.ruby.lubiechowlabs.autobus.live.CITY_ID"
+    const val EXTRA_STOP_ID = "pl.ruby.lubiechowlabs.autobus.live.STOP_ID"
+    const val EXTRA_LINE = "pl.ruby.lubiechowlabs.autobus.live.LINE"
+    const val EXTRA_SCHEDULED_AT = "pl.ruby.lubiechowlabs.autobus.live.SCHEDULED_AT"
 
     private const val CHANNEL_ID = "tracked_departure_live_update"
     internal const val NOTIFICATION_ID = 4016

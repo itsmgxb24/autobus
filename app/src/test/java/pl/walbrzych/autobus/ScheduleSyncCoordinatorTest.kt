@@ -1,4 +1,4 @@
-package pl.walbrzych.autobus
+package pl.ruby.lubiechowlabs.autobus
 
 import java.io.IOException
 import java.time.Instant
@@ -8,15 +8,15 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import pl.walbrzych.autobus.data.DepartureInfo
-import pl.walbrzych.autobus.data.LiveVehicle
-import pl.walbrzych.autobus.data.MyBusService
-import pl.walbrzych.autobus.data.RealTimeDepartures
-import pl.walbrzych.autobus.data.ScheduleCache
-import pl.walbrzych.autobus.data.ScheduleSnapshot
-import pl.walbrzych.autobus.data.ScheduleSyncCoordinator
-import pl.walbrzych.autobus.data.ScheduleVersion
-import pl.walbrzych.autobus.data.SyncResult
+import pl.ruby.lubiechowlabs.autobus.data.DepartureInfo
+import pl.ruby.lubiechowlabs.autobus.data.LiveVehicle
+import pl.ruby.lubiechowlabs.autobus.data.MyBusService
+import pl.ruby.lubiechowlabs.autobus.data.RealTimeDepartures
+import pl.ruby.lubiechowlabs.autobus.data.ScheduleCache
+import pl.ruby.lubiechowlabs.autobus.data.ScheduleSnapshot
+import pl.ruby.lubiechowlabs.autobus.data.ScheduleSyncCoordinator
+import pl.ruby.lubiechowlabs.autobus.data.ScheduleVersion
+import pl.ruby.lubiechowlabs.autobus.data.SyncResult
 
 class ScheduleSyncCoordinatorTest {
     @Test

@@ -1,4 +1,4 @@
-package pl.walbrzych.autobus.data
+package pl.ruby.lubiechowlabs.autobus.data
 
 /**
  * Chooses a single vehicle for a real-time departure without mistaking the

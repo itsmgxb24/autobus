@@ -1,4 +1,4 @@
-package pl.walbrzych.autobus.data
+package pl.ruby.lubiechowlabs.autobus.data
 
 import org.json.JSONObject
 import java.time.LocalDateTime

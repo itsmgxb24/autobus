@@ -1,4 +1,4 @@
-package pl.walbrzych.autobus.ui.theme
+package pl.ruby.lubiechowlabs.autobus.ui.theme
 
 import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme

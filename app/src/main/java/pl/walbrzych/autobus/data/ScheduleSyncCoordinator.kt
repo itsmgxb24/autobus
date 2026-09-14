@@ -1,4 +1,4 @@
-package pl.walbrzych.autobus.data
+package pl.ruby.lubiechowlabs.autobus.data
 
 /** Small platform-free update transaction, kept separate so its failure rules are unit-tested. */
 interface ScheduleCache {

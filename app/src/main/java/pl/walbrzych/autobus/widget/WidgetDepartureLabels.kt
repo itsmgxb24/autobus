@@ -1,8 +1,8 @@
-package pl.walbrzych.autobus.widget
+package pl.ruby.lubiechowlabs.autobus.widget
 
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
-import pl.walbrzych.autobus.data.RealTimeDeparture
+import pl.ruby.lubiechowlabs.autobus.data.RealTimeDeparture
 
 /** Wording shared by all home-screen widgets; screen-specific labels stay untouched. */
 internal fun widgetScheduledDepartureLabel(

@@ -1,10 +1,10 @@
-package pl.walbrzych.autobus
+package pl.ruby.lubiechowlabs.autobus
 
 import java.io.ByteArrayOutputStream
 import java.util.zip.GZIPOutputStream
 import org.junit.Assert.assertArrayEquals
 import org.junit.Test
-import pl.walbrzych.autobus.data.ScheduleArchiveDecoder
+import pl.ruby.lubiechowlabs.autobus.data.ScheduleArchiveDecoder
 
 class ScheduleArchiveDecoderTest {
     @Test

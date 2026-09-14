@@ -1,10 +1,10 @@
-package pl.walbrzych.autobus.ui
+package pl.ruby.lubiechowlabs.autobus.ui
 
 import java.time.LocalDateTime
 import org.junit.Assert.assertEquals
 import org.junit.Test
-import pl.walbrzych.autobus.data.RealTimeDeparture
-import pl.walbrzych.autobus.data.TransitTime
+import pl.ruby.lubiechowlabs.autobus.data.RealTimeDeparture
+import pl.ruby.lubiechowlabs.autobus.data.TransitTime
 
 class RealtimeDepartureDateTest {
     @Test

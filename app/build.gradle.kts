@@ -4,15 +4,15 @@ plugins {
 }
 
 android {
-    namespace = "pl.walbrzych.autobus"
+    namespace = "pl.ruby.lubiechowlabs.autobus"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "pl.walbrzych.autobus"
+        applicationId = "pl.ruby.lubiechowlabs.autobus"
         minSdk = 26
         targetSdk = 36
-        versionCode = 33
-        versionName = "1.1.32"
+        versionCode = 34
+        versionName = "1.1.33"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 

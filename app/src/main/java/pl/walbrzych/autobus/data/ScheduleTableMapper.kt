@@ -1,4 +1,4 @@
-package pl.walbrzych.autobus.data
+package pl.ruby.lubiechowlabs.autobus.data
 
 /** Pure mapping rules for MyBus table values; Android SQLite access remains in ScheduleDatabaseReader. */
 object ScheduleTableMapper {

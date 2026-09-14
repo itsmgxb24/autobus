@@ -1,11 +1,11 @@
-package pl.walbrzych.autobus
+package pl.ruby.lubiechowlabs.autobus
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import pl.walbrzych.autobus.data.MyBusXmlParser
+import pl.ruby.lubiechowlabs.autobus.data.MyBusXmlParser
 
 class MyBusXmlParserTest {
     @Test

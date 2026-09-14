@@ -1,4 +1,4 @@
-package pl.walbrzych.autobus.ui
+package pl.ruby.lubiechowlabs.autobus.ui
 
 import android.graphics.Canvas
 import android.graphics.Color
@@ -44,9 +44,9 @@ import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.Marker
 import org.osmdroid.views.overlay.Polyline
-import pl.walbrzych.autobus.data.StopData
-import pl.walbrzych.autobus.data.LiveVehicle
-import pl.walbrzych.autobus.data.destinationLabel
+import pl.ruby.lubiechowlabs.autobus.data.StopData
+import pl.ruby.lubiechowlabs.autobus.data.LiveVehicle
+import pl.ruby.lubiechowlabs.autobus.data.destinationLabel
 
 /** Interactive map of every stop from the active downloaded schedule. */
 @Composable
@@ -183,7 +183,7 @@ fun VehicleLocationMap(
         AndroidView(
             factory = { viewContext ->
                 Configuration.getInstance().userAgentValue =
-                    "${viewContext.packageName}/${pl.walbrzych.autobus.BuildConfig.VERSION_NAME}"
+                    "${viewContext.packageName}/${pl.ruby.lubiechowlabs.autobus.BuildConfig.VERSION_NAME}"
                 MapView(viewContext).apply {
                     setMultiTouchControls(true)
                     isTilesScaledToDpi = true
@@ -287,7 +287,7 @@ private fun TransitMap(
         AndroidView(
             factory = { viewContext ->
                 Configuration.getInstance().userAgentValue =
-                    "${viewContext.packageName}/${pl.walbrzych.autobus.BuildConfig.VERSION_NAME}"
+                    "${viewContext.packageName}/${pl.ruby.lubiechowlabs.autobus.BuildConfig.VERSION_NAME}"
                 MapView(viewContext).apply {
                     setMultiTouchControls(interactive)
                     isEnabled = interactive
@@ -609,7 +609,7 @@ private object NerdMarkerTypeface {
 
     @Synchronized
     fun from(context: Context): Typeface = cached ?: requireNotNull(
-        ResourcesCompat.getFont(context.applicationContext, pl.walbrzych.autobus.R.font.commit_mono_nerd_font_propo_regular),
+        ResourcesCompat.getFont(context.applicationContext, pl.ruby.lubiechowlabs.autobus.R.font.commit_mono_nerd_font_propo_regular),
     ).also { cached = it }
 }
 

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
-    android:configure="pl.walbrzych.autobus.widget.LineDeparturesWidgetConfigurationActivity"
+    android:configure="pl.ruby.lubiechowlabs.autobus.widget.LineDeparturesWidgetConfigurationActivity"
     android:initialLayout="@layout/widget_line_departures"
     android:minHeight="70dp"
     android:minWidth="250dp"

@@ -1,6 +1,6 @@
 @file:OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 
-package pl.walbrzych.autobus.ui
+package pl.ruby.lubiechowlabs.autobus.ui
 
 import android.Manifest
 import android.content.pm.PackageManager
@@ -73,18 +73,18 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
-import pl.walbrzych.autobus.data.DayType
-import pl.walbrzych.autobus.data.RealTimeDepartures
-import pl.walbrzych.autobus.data.ScheduleSnapshot
-import pl.walbrzych.autobus.data.StopData
-import pl.walbrzych.autobus.data.TimetableData
-import pl.walbrzych.autobus.data.TransitRepository
-import pl.walbrzych.autobus.data.TransitTime
-import pl.walbrzych.autobus.data.localTimes
-import pl.walbrzych.autobus.data.nextScheduledDepartures
-import pl.walbrzych.autobus.live.DepartureLiveUpdate
-import pl.walbrzych.autobus.live.DepartureLiveUpdateManager
-import pl.walbrzych.autobus.ui.theme.AutoBusTheme
+import pl.ruby.lubiechowlabs.autobus.data.DayType
+import pl.ruby.lubiechowlabs.autobus.data.RealTimeDepartures
+import pl.ruby.lubiechowlabs.autobus.data.ScheduleSnapshot
+import pl.ruby.lubiechowlabs.autobus.data.StopData
+import pl.ruby.lubiechowlabs.autobus.data.TimetableData
+import pl.ruby.lubiechowlabs.autobus.data.TransitRepository
+import pl.ruby.lubiechowlabs.autobus.data.TransitTime
+import pl.ruby.lubiechowlabs.autobus.data.localTimes
+import pl.ruby.lubiechowlabs.autobus.data.nextScheduledDepartures
+import pl.ruby.lubiechowlabs.autobus.live.DepartureLiveUpdate
+import pl.ruby.lubiechowlabs.autobus.live.DepartureLiveUpdateManager
+import pl.ruby.lubiechowlabs.autobus.ui.theme.AutoBusTheme
 import androidx.core.content.ContextCompat
 import java.time.DayOfWeek
 import java.time.Instant
@@ -119,7 +119,7 @@ fun StopDetailScreen(
     isFavorite: Boolean = false,
     onFavoriteChange: (Boolean) -> Unit = {},
     liveUpdateTarget: DepartureOpenTarget? = null,
-    onVehicleMap: (pl.walbrzych.autobus.data.RealTimeDeparture) -> Unit = {},
+    onVehicleMap: (pl.ruby.lubiechowlabs.autobus.data.RealTimeDeparture) -> Unit = {},
 ) {
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
     val lines = remember(stop) { stop.timetables.map { it.line }.distinct().sorted() }
@@ -197,7 +197,7 @@ private fun DeparturesTab(
     markTrackableDepartures: Boolean,
     markInvalidMidnightDepartures: Boolean,
     liveUpdateTarget: DepartureOpenTarget?,
-    onVehicleMap: (pl.walbrzych.autobus.data.RealTimeDeparture) -> Unit,
+    onVehicleMap: (pl.ruby.lubiechowlabs.autobus.data.RealTimeDeparture) -> Unit,
 ) {
     val context = LocalContext.current.applicationContext
     val now by androidx.compose.runtime.produceState(TransitTime.now(), stop.id) {
@@ -428,12 +428,12 @@ private fun TrackableDepartureMarker(onClick: () -> Unit) {
     }
 }
 
-private val trackableMarkerFont = FontFamily(Font(pl.walbrzych.autobus.R.font.commit_mono_nerd_font_propo_regular))
+private val trackableMarkerFont = FontFamily(Font(pl.ruby.lubiechowlabs.autobus.R.font.commit_mono_nerd_font_propo_regular))
 
 private fun realtimeTrackingUpdate(
     cityId: Int,
     stop: StopData,
-    departure: pl.walbrzych.autobus.data.RealTimeDeparture,
+    departure: pl.ruby.lubiechowlabs.autobus.data.RealTimeDeparture,
     now: LocalDateTime,
 ): DepartureLiveUpdate? {
     val scheduledInstant = departure.scheduledInstantOrNull(now) ?: return null
@@ -463,7 +463,7 @@ private fun scheduledTrackingUpdate(
     scheduledSeconds = departure.dateTime.toLocalTime().toSecondOfDay(),
 )
 
-internal fun pl.walbrzych.autobus.data.RealTimeDeparture.scheduledInstantOrNull(now: LocalDateTime): Instant? {
+internal fun pl.ruby.lubiechowlabs.autobus.data.RealTimeDeparture.scheduledInstantOrNull(now: LocalDateTime): Instant? {
     val time = scheduledTimeOrNull() ?: return null
     // GetTimeTableReal has no date. Choose the occurrence closest to the server's
     // current day; blindly moving every earlier clock time to tomorrow incorrectly
@@ -502,7 +502,7 @@ private fun TimetableTab(stop: StopData, snapshot: ScheduleSnapshot?, onLineClic
         }
             .map { it.serviceDayCode }.distinct()
         snapshot?.serviceDays?.filter { it.code in codes } ?: codes.mapIndexed { index, code ->
-            pl.walbrzych.autobus.data.ServiceDay(code, stop.timetables.first { it.serviceDayCode == code }.serviceDayLabel, index)
+            pl.ruby.lubiechowlabs.autobus.data.ServiceDay(code, stop.timetables.first { it.serviceDayCode == code }.serviceDayLabel, index)
         }
     }
     var selectedDayCode by rememberSaveable(stop.id, selectedLine, selectedDirection, selectedVariantKey) {

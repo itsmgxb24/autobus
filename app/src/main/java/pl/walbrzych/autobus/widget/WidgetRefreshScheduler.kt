@@ -1,4 +1,4 @@
-package pl.walbrzych.autobus.widget
+package pl.ruby.lubiechowlabs.autobus.widget
 
 import android.app.AlarmManager
 import android.app.PendingIntent

@@ -1,6 +1,6 @@
 @file:OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 
-package pl.walbrzych.autobus.widget
+package pl.ruby.lubiechowlabs.autobus.widget
 
 import android.app.Activity
 import android.appwidget.AppWidgetManager
@@ -50,15 +50,15 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import pl.walbrzych.autobus.data.CitySelectionStore
-import pl.walbrzych.autobus.data.cachedScheduleForCity
-import pl.walbrzych.autobus.data.ScheduleSnapshot
-import pl.walbrzych.autobus.data.StopData
-import pl.walbrzych.autobus.data.UserInterfacePreferences
-import pl.walbrzych.autobus.data.filterStopsForDisplay
-import pl.walbrzych.autobus.ui.FullscreenStopMap
-import pl.walbrzych.autobus.ui.OfflineMap
-import pl.walbrzych.autobus.ui.theme.AutoBusTheme
+import pl.ruby.lubiechowlabs.autobus.data.CitySelectionStore
+import pl.ruby.lubiechowlabs.autobus.data.cachedScheduleForCity
+import pl.ruby.lubiechowlabs.autobus.data.ScheduleSnapshot
+import pl.ruby.lubiechowlabs.autobus.data.StopData
+import pl.ruby.lubiechowlabs.autobus.data.UserInterfacePreferences
+import pl.ruby.lubiechowlabs.autobus.data.filterStopsForDisplay
+import pl.ruby.lubiechowlabs.autobus.ui.FullscreenStopMap
+import pl.ruby.lubiechowlabs.autobus.ui.OfflineMap
+import pl.ruby.lubiechowlabs.autobus.ui.theme.AutoBusTheme
 
 open class DepartureWidgetConfigurationActivity : ComponentActivity() {
     /** The original 2×2 widget follows exactly one line. */

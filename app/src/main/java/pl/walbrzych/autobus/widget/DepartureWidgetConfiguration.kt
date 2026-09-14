@@ -1,4 +1,4 @@
-package pl.walbrzych.autobus.widget
+package pl.ruby.lubiechowlabs.autobus.widget
 
 import android.app.PendingIntent
 import android.appwidget.AppWidgetManager
@@ -69,11 +69,11 @@ class DepartureWidgetConfigurationStore(context: Context) {
 
 /** Requests the original compact widget after choosing one stop and one line. */
 object DepartureWidgetPinning {
-    const val EXTRA_CITY_ID = "pl.walbrzych.autobus.widget.CITY_ID"
-    const val EXTRA_STOP_ID = "pl.walbrzych.autobus.widget.STOP_ID"
-    const val EXTRA_LINES = "pl.walbrzych.autobus.widget.LINES"
+    const val EXTRA_CITY_ID = "pl.ruby.lubiechowlabs.autobus.widget.CITY_ID"
+    const val EXTRA_STOP_ID = "pl.ruby.lubiechowlabs.autobus.widget.STOP_ID"
+    const val EXTRA_LINES = "pl.ruby.lubiechowlabs.autobus.widget.LINES"
     /** Kept only to read pin callbacks from an APK version installed before the upgrade. */
-    const val EXTRA_LINE = "pl.walbrzych.autobus.widget.LINE"
+    const val EXTRA_LINE = "pl.ruby.lubiechowlabs.autobus.widget.LINE"
 
     fun request(context: Context, configuration: DepartureWidgetConfiguration): Boolean {
         val manager = AppWidgetManager.getInstance(context)

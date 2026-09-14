@@ -1,11 +1,11 @@
-package pl.walbrzych.autobus
+package pl.ruby.lubiechowlabs.autobus
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import pl.walbrzych.autobus.data.CityCatalog
-import pl.walbrzych.autobus.data.CityDataSource
+import pl.ruby.lubiechowlabs.autobus.data.CityCatalog
+import pl.ruby.lubiechowlabs.autobus.data.CityDataSource
 
 class CityCatalogTest {
     @Test

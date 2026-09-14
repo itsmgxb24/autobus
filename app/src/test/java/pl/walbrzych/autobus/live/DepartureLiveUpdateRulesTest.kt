@@ -1,11 +1,11 @@
-package pl.walbrzych.autobus.live
+package pl.ruby.lubiechowlabs.autobus.live
 
 import java.time.Instant
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import pl.walbrzych.autobus.data.RealTimeDeparture
+import pl.ruby.lubiechowlabs.autobus.data.RealTimeDeparture
 
 class DepartureLiveUpdateRulesTest {
     private val departure = DepartureLiveUpdate(

@@ -1,4 +1,4 @@
-package pl.walbrzych.autobus.widget
+package pl.ruby.lubiechowlabs.autobus.widget
 
 import android.app.PendingIntent
 import android.appwidget.AppWidgetManager
@@ -13,12 +13,12 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
-import pl.walbrzych.autobus.MainActivity
-import pl.walbrzych.autobus.R
-import pl.walbrzych.autobus.data.CitySelectionStore
-import pl.walbrzych.autobus.data.cachedScheduleForCity
-import pl.walbrzych.autobus.data.UserInterfacePreferences
-import pl.walbrzych.autobus.data.TransitTime
+import pl.ruby.lubiechowlabs.autobus.MainActivity
+import pl.ruby.lubiechowlabs.autobus.R
+import pl.ruby.lubiechowlabs.autobus.data.CitySelectionStore
+import pl.ruby.lubiechowlabs.autobus.data.cachedScheduleForCity
+import pl.ruby.lubiechowlabs.autobus.data.UserInterfacePreferences
+import pl.ruby.lubiechowlabs.autobus.data.TransitTime
 
 /**
  * A 4×3 dashboard that combines the closest courses from the user's favourite
@@ -146,7 +146,7 @@ class FavoriteDeparturesWidgetProvider : AppWidgetProvider() {
     private data class RowIds(val root: Int, val line: Int, val stop: Int, val direction: Int, val time: Int)
 
     companion object {
-        private const val ACTION_REFRESH = "pl.walbrzych.autobus.widget.FAVORITE_DEPARTURES_REFRESH"
+        private const val ACTION_REFRESH = "pl.ruby.lubiechowlabs.autobus.widget.FAVORITE_DEPARTURES_REFRESH"
         private const val NO_DEPARTURE_RETRY_SECONDS = 30 * 60L
         private val providerScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
         private val refreshScheduler = WidgetRefreshScheduler(

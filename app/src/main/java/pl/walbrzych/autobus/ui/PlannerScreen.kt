@@ -1,6 +1,6 @@
 @file:OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 
-package pl.walbrzych.autobus.ui
+package pl.ruby.lubiechowlabs.autobus.ui
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -50,11 +50,11 @@ import java.time.format.DateTimeFormatter
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import pl.walbrzych.autobus.data.PlannedJourney
-import pl.walbrzych.autobus.data.ScheduleSnapshot
-import pl.walbrzych.autobus.data.TransitTime
-import pl.walbrzych.autobus.data.StopData
-import pl.walbrzych.autobus.data.TransitPlanner
+import pl.ruby.lubiechowlabs.autobus.data.PlannedJourney
+import pl.ruby.lubiechowlabs.autobus.data.ScheduleSnapshot
+import pl.ruby.lubiechowlabs.autobus.data.TransitTime
+import pl.ruby.lubiechowlabs.autobus.data.StopData
+import pl.ruby.lubiechowlabs.autobus.data.TransitPlanner
 
 /** A local, calendar-aware connection planner for the downloaded timetable. */
 @Composable

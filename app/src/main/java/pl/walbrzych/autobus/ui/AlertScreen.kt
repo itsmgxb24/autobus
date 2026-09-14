@@ -1,6 +1,6 @@
 @file:OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 
-package pl.walbrzych.autobus.ui
+package pl.ruby.lubiechowlabs.autobus.ui
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -40,9 +40,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import pl.walbrzych.autobus.data.StopData
-import pl.walbrzych.autobus.data.UserInterfacePreferences
-import pl.walbrzych.autobus.ui.theme.AutoBusTheme
+import pl.ruby.lubiechowlabs.autobus.data.StopData
+import pl.ruby.lubiechowlabs.autobus.data.UserInterfacePreferences
+import pl.ruby.lubiechowlabs.autobus.ui.theme.AutoBusTheme
 
 /**
  * Community reports need a trustworthy, dedicated source. This application has no

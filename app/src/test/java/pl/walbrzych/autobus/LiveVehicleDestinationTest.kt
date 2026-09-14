@@ -1,9 +1,9 @@
-package pl.walbrzych.autobus
+package pl.ruby.lubiechowlabs.autobus
 
 import org.junit.Assert.assertEquals
 import org.junit.Test
-import pl.walbrzych.autobus.data.LiveVehicle
-import pl.walbrzych.autobus.data.destinationLabel
+import pl.ruby.lubiechowlabs.autobus.data.LiveVehicle
+import pl.ruby.lubiechowlabs.autobus.data.destinationLabel
 
 class LiveVehicleDestinationTest {
     @Test

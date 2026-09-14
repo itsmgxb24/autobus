@@ -1,6 +1,6 @@
 @file:OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 
-package pl.walbrzych.autobus.ui
+package pl.ruby.lubiechowlabs.autobus.ui
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -37,10 +37,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
-import pl.walbrzych.autobus.data.LiveVehicle
-import pl.walbrzych.autobus.data.StopData
-import pl.walbrzych.autobus.data.TimetableData
-import pl.walbrzych.autobus.data.TransitRepository
+import pl.ruby.lubiechowlabs.autobus.data.LiveVehicle
+import pl.ruby.lubiechowlabs.autobus.data.StopData
+import pl.ruby.lubiechowlabs.autobus.data.TimetableData
+import pl.ruby.lubiechowlabs.autobus.data.TransitRepository
 
 /**
  * Shows the actual ordered stop identifiers from KIERUNKI.trasa. This database has

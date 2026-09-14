@@ -1,4 +1,4 @@
-package pl.walbrzych.autobus.data
+package pl.ruby.lubiechowlabs.autobus.data
 
 /**
  * The complete downloaded, ordered route that can be tied unambiguously to a

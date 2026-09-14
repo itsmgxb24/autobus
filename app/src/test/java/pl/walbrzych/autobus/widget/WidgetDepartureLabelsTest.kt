@@ -1,8 +1,8 @@
-package pl.walbrzych.autobus.widget
+package pl.ruby.lubiechowlabs.autobus.widget
 
 import java.time.LocalDateTime
 import org.junit.Test
-import pl.walbrzych.autobus.data.RealTimeDeparture
+import pl.ruby.lubiechowlabs.autobus.data.RealTimeDeparture
 import kotlin.test.assertEquals
 
 class WidgetDepartureLabelsTest {

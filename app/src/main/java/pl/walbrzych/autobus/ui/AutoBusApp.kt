@@ -1,6 +1,6 @@
 @file:OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 
-package pl.walbrzych.autobus.ui
+package pl.ruby.lubiechowlabs.autobus.ui
 
 import android.content.Intent
 import android.net.Uri
@@ -95,11 +95,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
-import pl.walbrzych.autobus.data.ScheduleSnapshot
-import pl.walbrzych.autobus.data.SyncResult
-import pl.walbrzych.autobus.data.CityCatalog
-import pl.walbrzych.autobus.data.CityConfig
-import pl.walbrzych.autobus.data.CitySelectionStore
+import pl.ruby.lubiechowlabs.autobus.data.ScheduleSnapshot
+import pl.ruby.lubiechowlabs.autobus.data.SyncResult
+import pl.ruby.lubiechowlabs.autobus.data.CityCatalog
+import pl.ruby.lubiechowlabs.autobus.data.CityConfig
+import pl.ruby.lubiechowlabs.autobus.data.CitySelectionStore
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavType
@@ -108,18 +108,18 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
-import pl.walbrzych.autobus.data.StopData
-import pl.walbrzych.autobus.data.TransitRepository
-import pl.walbrzych.autobus.data.distanceTo
-import pl.walbrzych.autobus.data.HomeScreenConfiguration
-import pl.walbrzych.autobus.data.HomeScreenTile
-import pl.walbrzych.autobus.data.UserInterfacePreferences
-import pl.walbrzych.autobus.data.TransitTime
-import pl.walbrzych.autobus.data.filterStopsForDisplay
-import pl.walbrzych.autobus.widget.DepartureWidgetProvider
-import pl.walbrzych.autobus.widget.DeparturesWidgetProvider
-import pl.walbrzych.autobus.widget.FavoriteDeparturesWidgetProvider
-import pl.walbrzych.autobus.widget.LineDeparturesWidgetProvider
+import pl.ruby.lubiechowlabs.autobus.data.StopData
+import pl.ruby.lubiechowlabs.autobus.data.TransitRepository
+import pl.ruby.lubiechowlabs.autobus.data.distanceTo
+import pl.ruby.lubiechowlabs.autobus.data.HomeScreenConfiguration
+import pl.ruby.lubiechowlabs.autobus.data.HomeScreenTile
+import pl.ruby.lubiechowlabs.autobus.data.UserInterfacePreferences
+import pl.ruby.lubiechowlabs.autobus.data.TransitTime
+import pl.ruby.lubiechowlabs.autobus.data.filterStopsForDisplay
+import pl.ruby.lubiechowlabs.autobus.widget.DepartureWidgetProvider
+import pl.ruby.lubiechowlabs.autobus.widget.DeparturesWidgetProvider
+import pl.ruby.lubiechowlabs.autobus.widget.FavoriteDeparturesWidgetProvider
+import pl.ruby.lubiechowlabs.autobus.widget.LineDeparturesWidgetProvider
 import kotlin.math.abs
 
 private object Routes {

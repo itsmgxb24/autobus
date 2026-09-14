@@ -1,4 +1,4 @@
-package pl.walbrzych.autobus.data
+package pl.ruby.lubiechowlabs.autobus.data
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull

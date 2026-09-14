@@ -1,4 +1,4 @@
-package pl.walbrzych.autobus
+package pl.ruby.lubiechowlabs.autobus
 
 import kotlinx.coroutines.runBlocking
 import okhttp3.mockwebserver.MockResponse
@@ -6,7 +6,7 @@ import okhttp3.mockwebserver.MockWebServer
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import pl.walbrzych.autobus.data.MyBusHttpClient
+import pl.ruby.lubiechowlabs.autobus.data.MyBusHttpClient
 
 class MyBusHttpClientTest {
     @Test

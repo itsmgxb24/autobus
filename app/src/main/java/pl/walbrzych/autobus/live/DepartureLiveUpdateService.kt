@@ -1,4 +1,4 @@
-package pl.walbrzych.autobus.live
+package pl.ruby.lubiechowlabs.autobus.live
 
 import android.app.Service
 import android.content.Context

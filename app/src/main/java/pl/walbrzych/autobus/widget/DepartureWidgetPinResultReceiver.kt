@@ -1,4 +1,4 @@
-package pl.walbrzych.autobus.widget
+package pl.ruby.lubiechowlabs.autobus.widget
 
 import android.appwidget.AppWidgetManager
 import android.content.BroadcastReceiver

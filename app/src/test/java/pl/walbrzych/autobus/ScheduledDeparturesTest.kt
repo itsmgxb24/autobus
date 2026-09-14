@@ -1,16 +1,16 @@
-package pl.walbrzych.autobus
+package pl.ruby.lubiechowlabs.autobus
 
 import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalDateTime
 import org.junit.Assert.assertEquals
 import org.junit.Test
-import pl.walbrzych.autobus.data.DayType
-import pl.walbrzych.autobus.data.ScheduleSnapshot
-import pl.walbrzych.autobus.data.ScheduleVersion
-import pl.walbrzych.autobus.data.StopData
-import pl.walbrzych.autobus.data.TimetableData
-import pl.walbrzych.autobus.data.nextScheduledDepartures
+import pl.ruby.lubiechowlabs.autobus.data.DayType
+import pl.ruby.lubiechowlabs.autobus.data.ScheduleSnapshot
+import pl.ruby.lubiechowlabs.autobus.data.ScheduleVersion
+import pl.ruby.lubiechowlabs.autobus.data.StopData
+import pl.ruby.lubiechowlabs.autobus.data.TimetableData
+import pl.ruby.lubiechowlabs.autobus.data.nextScheduledDepartures
 
 class ScheduledDeparturesTest {
     private val monday = LocalDate.of(2026, 9, 14)
