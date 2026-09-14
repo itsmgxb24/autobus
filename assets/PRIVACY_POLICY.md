@@ -9,7 +9,7 @@ Administratorem aplikacji autoBus jest jej autor. W sprawach dotyczących prywat
 
 ## 2. Zakres polityki
 
-autoBus jest aplikacją informacyjną dla komunikacji miejskiej. Umożliwia pobieranie rozkładów, wyświetlanie przystanków i map, sprawdzanie dostępnych danych czasu rzeczywistego oraz korzystanie z widgetów. Aplikacja nie wymaga założenia konta i nie umożliwia zakupu biletów ani przetwarzania płatności.
+autoBus jest aplikacją informacyjną dla wszystkich użytkowników komunikacji miejskiej. Umożliwia pobieranie rozkładów, wyświetlanie przystanków i map, sprawdzanie dostępnych danych czasu rzeczywistego oraz korzystanie z widgetów. Aplikacja nie wymaga założenia konta i nie umożliwia zakupu biletów ani przetwarzania płatności.
 
 ## 3. Dane przetwarzane przez aplikację
 
@@ -68,14 +68,10 @@ Autor autoBus nie sprzedaje danych, nie udostępnia ich brokerom danych i nie u�
 
 W miarę dostępności aplikacja korzysta z HTTPS. Część starszych serwerów rozkładowych operatorów działa wyłącznie przez HTTP; użytkownik może wybrać ten tryb w ustawieniach aplikacji. Przy HTTP treść połączenia nie ma ochrony zapewnianej przez TLS, dlatego zalecamy używanie HTTPS, gdy dany operator je obsługuje.
 
-## 7. Dzieci
-
-Aplikacja nie jest kierowana szczególnie do dzieci i nie zbiera świadomie danych osobowych dzieci. Nie ma kont użytkownika, czatu ani funkcji społecznościowych. KanarAlert pozostaje wyłączony i nie przyjmuje zgłoszeń.
-
-## 8. Zmiany polityki
+## 7. Zmiany polityki
 
 Polityka może zostać zaktualizowana, gdy zmieni się działanie aplikacji lub wymagania prawne. Aktualna wersja będzie publikowana pod tym samym adresem w repozytorium projektu. Data wejścia w życie na początku dokumentu wskazuje ostatnią aktualizację.
 
-## 9. Kontakt
+## 8. Kontakt
 
 Pytania, prośby lub uwagi dotyczące prywatności: [itsmgxb25@gmail.com](mailto:itsmgxb25@gmail.com).
