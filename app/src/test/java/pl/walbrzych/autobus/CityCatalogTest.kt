@@ -5,11 +5,12 @@ import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import pl.walbrzych.autobus.data.CityCatalog
+import pl.walbrzych.autobus.data.CityDataSource
 
 class CityCatalogTest {
     @Test
-    fun containsEveryRecoveredMyBusCityWithUniqueNetworkConfiguration() {
-        assertEquals(53, CityCatalog.cities.size)
+    fun containsEveryConfiguredCityWithUniqueNetworkConfiguration() {
+        assertEquals(54, CityCatalog.cities.size)
         assertEquals(CityCatalog.cities.size, CityCatalog.cities.map { it.id }.toSet().size)
 
         CityCatalog.cities.forEach { city ->
@@ -17,8 +18,20 @@ class CityCatalogTest {
             assertTrue(city.operator.isNotBlank())
             assertTrue(city.cityCode.isNotBlank())
             assertTrue(city.baseUrl.startsWith("http://") || city.baseUrl.startsWith("https://"))
-            assertTrue(city.baseUrl.endsWith("SchedulesService.svc"))
+            when (city.dataSource) {
+                CityDataSource.MYBUS -> assertTrue(city.baseUrl.endsWith("SchedulesService.svc"))
+                CityDataSource.ZDITM_GTFS -> assertTrue(city.baseUrl.endsWith("gtfs.zip"))
+            }
         }
+    }
+
+    @Test
+    fun includesSzczecinWithTheOfficialGtfsSource() {
+        val szczecin = requireNotNull(CityCatalog.byId(60))
+
+        assertEquals("Szczecin", szczecin.name)
+        assertEquals(CityDataSource.ZDITM_GTFS, szczecin.dataSource)
+        assertEquals("https://www.zditm.szczecin.pl/storage/gtfs/gtfs.zip", szczecin.baseUrl)
     }
 
     @Test
@@ -32,5 +45,16 @@ class CityCatalogTest {
             "http://rozklad.walbrzych.eu/myBusServices/SchedulesService.svc",
             walbrzych?.baseUrl,
         )
+    }
+
+    @Test
+    fun canPreferHttpsWithoutDiscardingTheLegacyHttpFallback() {
+        val walbrzych = requireNotNull(CityCatalog.byId(10))
+
+        assertEquals(
+            "https://rozklad.walbrzych.eu/myBusServices/SchedulesService.svc",
+            walbrzych.serviceBaseUrl(useHttps = true),
+        )
+        assertEquals(walbrzych.baseUrl, walbrzych.serviceBaseUrl(useHttps = false))
     }
 }

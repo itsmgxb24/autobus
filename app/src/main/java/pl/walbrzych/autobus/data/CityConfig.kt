@@ -3,14 +3,20 @@ package pl.walbrzych.autobus.data
 import android.content.Context
 import androidx.core.content.edit
 
-/** One MyBus operator configuration, copied from the application's local city catalogue. */
+enum class CityDataSource { MYBUS, ZDITM_GTFS }
+
+/** One operator configuration from the application's local city catalogue. */
 data class CityConfig(
     val id: Int,
     val name: String,
     val operator: String,
     val baseUrl: String,
     val cityCode: String,
-)
+    val dataSource: CityDataSource = CityDataSource.MYBUS,
+) {
+    fun serviceBaseUrl(useHttps: Boolean): String =
+        if (useHttps) baseUrl.replaceFirst("http://", "https://") else baseUrl
+}
 
 /**
  * The MyBus APK builds this list locally rather than downloading it. Keeping the same
@@ -71,6 +77,14 @@ object CityCatalog {
         CityConfig(10, "Wałbrzych", "Gmina Wałbrzych", "http://rozklad.walbrzych.eu/myBusServices/SchedulesService.svc", "WALBR"),
         CityConfig(58, "Zamość", "MZK", "http://37.109.29.250/myBusServices/SchedulesService.svc", "ZAMOS"),
         CityConfig(53, "Žilina", "DPMZ", "https://www.mybus.dpmz.sk/myBusServices/SchedulesService.svc", "ZILIN"),
+        CityConfig(
+            id = 60,
+            name = "Szczecin",
+            operator = "ZDiTM Szczecin",
+            baseUrl = "https://www.zditm.szczecin.pl/storage/gtfs/gtfs.zip",
+            cityCode = "SZCZECIN",
+            dataSource = CityDataSource.ZDITM_GTFS,
+        ),
     )
 
     fun byId(id: Int?): CityConfig? = cities.firstOrNull { it.id == id }

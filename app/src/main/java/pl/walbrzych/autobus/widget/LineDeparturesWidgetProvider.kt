@@ -9,16 +9,15 @@ import android.content.Intent
 import android.view.View
 import android.widget.RemoteViews
 import java.time.Instant
-import java.time.LocalDateTime
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import pl.walbrzych.autobus.MainActivity
 import pl.walbrzych.autobus.R
-import pl.walbrzych.autobus.data.ScheduleFileStore
+import pl.walbrzych.autobus.data.CityCatalog
+import pl.walbrzych.autobus.data.cachedScheduleForCity
+import pl.walbrzych.autobus.data.TransitTime
 
 /**
  * A wide 4×1 widget for a single line: it shows the next three calendar-aware
@@ -64,7 +63,7 @@ class LineDeparturesWidgetProvider : AppWidgetProvider() {
                 val store = DepartureWidgetConfigurationStore(context)
                 val refreshAt = ids.map { widgetId ->
                     val content = store.read(widgetId)?.let { resolveContent(context, it) }
-                        ?: Content("AutoBUS", "Wybierz przystanek i linię", emptyList(), null)
+                        ?: Content("autoBus", "Wybierz przystanek i linię", emptyList(), null)
                     render(context, manager, widgetId, content)
                     content.refreshAt
                 }.filterNotNull().minOrNull()
@@ -77,12 +76,14 @@ class LineDeparturesWidgetProvider : AppWidgetProvider() {
 
     private suspend fun resolveContent(context: Context, configuration: DepartureWidgetConfiguration): Content {
         val line = configuration.lines.firstOrNull()
-            ?: return Content("AutoBUS", "Wybierz linię w konfiguracji", emptyList(), null)
-        val snapshot = ScheduleFileStore(context, configuration.cityId).cachedSnapshot()
+            ?: return Content("autoBus", "Wybierz linię w konfiguracji", emptyList(), null)
+        val city = CityCatalog.byId(configuration.cityId)
+            ?: return Content("autoBus", "Miasto niedostępne", emptyList(), null)
+        val snapshot = cachedScheduleForCity(context, city)
             ?: return Content("Linia $line", "Brak zapisanego rozkładu", emptyList(), null)
         val stop = snapshot.stops.firstOrNull { it.id == configuration.stopId }
             ?: return Content("Linia $line", "Przystanek niedostępny", emptyList(), null)
-        val now = LocalDateTime.now()
+        val now = TransitTime.now()
         val departures = selectLineWidgetDepartures(snapshot, stop, line, now)
         val directions = stop.timetables
             .asSequence()
@@ -94,9 +95,9 @@ class LineDeparturesWidgetProvider : AppWidgetProvider() {
         return Content(
             title = "Linia $line",
             subtitle = listOf(stop.name, directions.takeIf(String::isNotBlank)).joinToString(" · "),
-            departures = departures.map { it.scheduledAt.format(TIME_FORMAT) },
+            departures = departures.map { widgetDepartureTimeLabel(it.scheduledAt, now) },
             refreshAt = departures.firstOrNull()?.scheduledAt
-                ?.atZone(ZoneId.systemDefault())
+                ?.atZone(TransitTime.zone)
                 ?.toInstant()
                 ?.plusSeconds(2)
                 ?: Instant.now().plusSeconds(NO_DEPARTURE_RETRY_SECONDS),
@@ -143,7 +144,6 @@ class LineDeparturesWidgetProvider : AppWidgetProvider() {
     companion object {
         private const val ACTION_REFRESH = "pl.walbrzych.autobus.widget.LINE_DEPARTURES_REFRESH"
         private const val NO_DEPARTURE_RETRY_SECONDS = 30 * 60L
-        private val TIME_FORMAT = DateTimeFormatter.ofPattern("HH:mm")
         private val TIME_IDS = listOf(
             R.id.widget_line_series_time_1,
             R.id.widget_line_series_time_2,

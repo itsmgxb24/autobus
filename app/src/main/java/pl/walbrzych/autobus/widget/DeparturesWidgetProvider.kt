@@ -12,7 +12,6 @@ import android.view.View
 import android.widget.RemoteViews
 import java.time.Instant
 import java.time.LocalDateTime
-import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -23,10 +22,11 @@ import pl.walbrzych.autobus.MainActivity
 import pl.walbrzych.autobus.R
 import pl.walbrzych.autobus.data.CityCatalog
 import pl.walbrzych.autobus.data.RealTimeDeparture
-import pl.walbrzych.autobus.data.ScheduleFileStore
+import pl.walbrzych.autobus.data.cachedScheduleForCity
 import pl.walbrzych.autobus.data.ScheduleSnapshot
 import pl.walbrzych.autobus.data.ScheduledDeparture
 import pl.walbrzych.autobus.data.TransitRepository
+import pl.walbrzych.autobus.data.TransitTime
 import pl.walbrzych.autobus.data.nextScheduledDepartures
 
 /** Material-styled 4×2 home-screen widget for four nearest departures at one stop. */
@@ -76,7 +76,7 @@ class DeparturesWidgetProvider : AppWidgetProvider() {
                     val content = store.read(widgetId)?.let { configuration ->
                         resolveContent(context, configuration, snapshots, realtimeDepartures)
                     } ?: WidgetContent(
-                        title = "AutoBUS",
+                        title = "autoBus",
                         subtitle = "Wybierz przystanek w konfiguracji",
                         updatedAt = "",
                         departures = listOf(WidgetDeparture("", "Otwórz konfigurację widgetu", "")),
@@ -99,25 +99,25 @@ class DeparturesWidgetProvider : AppWidgetProvider() {
         realtimeCache: MutableMap<WidgetStopKey, List<RealTimeDeparture>?>,
     ): WidgetContent {
         val snapshot = if (snapshots.containsKey(configuration.cityId)) snapshots[configuration.cityId] else {
-            ScheduleFileStore(context, configuration.cityId).cachedSnapshot().also {
+            CityCatalog.byId(configuration.cityId)?.let { city -> cachedScheduleForCity(context, city) }.also {
                 snapshots[configuration.cityId] = it
             }
         } ?: return WidgetContent(
-            title = "AutoBUS",
+            title = "autoBus",
             subtitle = "Brak zapisanego rozkładu",
             updatedAt = "",
-            departures = listOf(WidgetDeparture("", "Otwórz AutoBUS i pobierz rozkład", "")),
+            departures = listOf(WidgetDeparture("", "Otwórz autoBus i pobierz rozkład", "")),
             refreshAt = null,
         )
         val stop = snapshot.stops.firstOrNull { it.id == configuration.stopId }
             ?: return WidgetContent(
-                title = "AutoBUS",
+                title = "autoBus",
                 subtitle = "Przystanek niedostępny",
                 updatedAt = "",
-                departures = listOf(WidgetDeparture("", "Otwórz AutoBUS i wybierz przystanek", "")),
+                departures = listOf(WidgetDeparture("", "Otwórz autoBus i wybierz przystanek", "")),
                 refreshAt = null,
             )
-        val now = LocalDateTime.now()
+        val now = TransitTime.now()
         val scheduled = selectWidgetScheduledDepartures(snapshot, stop, configuration.lines, now)
         val stopKey = WidgetStopKey(configuration.cityId, stop.id)
         val realtime = if (realtimeCache.containsKey(stopKey)) realtimeCache[stopKey] else {
@@ -149,10 +149,11 @@ class DeparturesWidgetProvider : AppWidgetProvider() {
                 WidgetDeparture(
                     line = scheduledDeparture.timetable.line,
                     direction = scheduledDeparture.timetable.direction,
-                    // Retain the wording used by the stop screen: an ETA is shown
-                    // only when the server supplied one, otherwise it is HH:mm.
-                    time = liveDeparture?.arrivalLabel
-                        ?: "Przyjazd: ${scheduledDeparture.scheduledAt.format(TIME_FORMAT)}",
+                    // An ETA is shown only when the server supplied one; otherwise
+                    // show the calendar-aware scheduled time.
+                    time = liveDeparture?.let {
+                        widgetDepartureLabel(it, scheduledDeparture.scheduledAt, now)
+                    } ?: widgetScheduledDepartureLabel(scheduledDeparture.scheduledAt, now),
                 )
             }
         } else {
@@ -160,13 +161,13 @@ class DeparturesWidgetProvider : AppWidgetProvider() {
                 WidgetDeparture(
                     line = departure.line,
                     direction = departure.direction,
-                    time = departure.arrivalLabel,
+                    time = widgetDepartureLabel(departure, scheduledAt = null, now = now),
                 )
             }
         }
         val refreshAt = when {
             liveCandidates.any { it.etaMinutes != null } -> Instant.now().plusSeconds(60)
-            scheduled.isNotEmpty() -> scheduled.first().scheduledAt.atZone(ZoneId.systemDefault()).toInstant().plusSeconds(2)
+            scheduled.isNotEmpty() -> scheduled.first().scheduledAt.atZone(TransitTime.zone).toInstant().plusSeconds(2)
             else -> Instant.now().plusSeconds(NO_DEPARTURE_RETRY_SECONDS)
         }
         return WidgetContent(
@@ -178,7 +179,11 @@ class DeparturesWidgetProvider : AppWidgetProvider() {
                     else "Linie: ${configuration.lines.sorted().joinToString(" · ")}",
                 )
             },
-            updatedAt = "Akt. ${now.format(UPDATE_TIME_FORMAT)}",
+            updatedAt = if (realtime != null) {
+                "Akt. ${now.format(UPDATE_TIME_FORMAT)}"
+            } else {
+                "Rozkład ${now.format(UPDATE_TIME_FORMAT)}"
+            },
             departures = rows.ifEmpty { listOf(WidgetDeparture("", "Brak kolejnych kursów", "")) },
             refreshAt = refreshAt,
         )
@@ -239,7 +244,6 @@ class DeparturesWidgetProvider : AppWidgetProvider() {
         private const val ACTION_REFRESH = "pl.walbrzych.autobus.widget.DEPARTURES_REFRESH"
         private const val NO_DEPARTURE_RETRY_SECONDS = 30 * 60L
         private const val MAX_DEPARTURES = 4
-        private val TIME_FORMAT: DateTimeFormatter = DateTimeFormatter.ofPattern("HH:mm")
         private val UPDATE_TIME_FORMAT: DateTimeFormatter = DateTimeFormatter.ofPattern("HH:mm")
         private val providerScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
         private val WIDGET_ROW_IDS = listOf(
@@ -266,11 +270,15 @@ internal fun selectWidgetScheduledDepartures(
     lines: Set<String>,
     now: LocalDateTime,
 ): List<ScheduledDeparture> =
-    nextScheduledDepartures(snapshot, stop, from = now, limit = 64)
-        .asSequence()
-        .filter { lines.isEmpty() || it.timetable.line in lines }
-        .take(4)
-        .toList()
+    if (lines.isEmpty()) {
+        nextScheduledDepartures(snapshot, stop, from = now, limit = 4)
+    } else {
+        lines.flatMap { line ->
+            nextScheduledDepartures(snapshot, stop, line, now, limit = 4)
+        }
+            .sortedBy { it.scheduledAt }
+            .take(4)
+    }
 
 private object DeparturesWidgetRefreshScheduler {
     private const val REQUEST_CODE = 7022

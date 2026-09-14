@@ -14,5 +14,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "AutoBUS Walbrzych"
+rootProject.name = "autoBus"
 include(":app")

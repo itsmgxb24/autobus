@@ -173,14 +173,20 @@ private suspend fun vehicleMapContent(
         departureId = target.departureId,
     ) ?: return VehiclePositionState.Unavailable("Pozycja pojazdu jest obecnie niedostępna.")
     val progress = vehicleRouteProgress(snapshot, target.departureStopId, target.line, vehicle)
-    val nextStop = snapshot.stops.firstOrNull { it.id == target.departureStopId }
+    val nextStop = snapshot.stops.firstOrNull { it.id == progress?.nextStopId }
+        ?: snapshot.stops.firstOrNull { it.id == target.departureStopId }
     val etaLabel = nextStop?.let { stop ->
         repository.realTimeDepartures(stop.id).getOrNull()?.let { realtime ->
-            realtime.departures
+            val matchingDeparture = realtime.departures
                 .firstOrNull { departure ->
-                    departure.departureId == target.departureId && departure.n == target.sideNumber
+                    departure.n == target.sideNumber && departure.line == target.line &&
+                        (vehicle.directionCode.isBlank() || departure.directionCode.isNullOrBlank() ||
+                            departure.directionCode == vehicle.directionCode)
                 }
-                ?.mapEtaLabel(realtime.serverTime)
+                ?: realtime.departures.firstOrNull { departure ->
+                    departure.n == target.sideNumber && departure.line == target.line
+                }
+            matchingDeparture?.mapEtaLabel(realtime.serverTime)
         }
     }
     val directionLabel = progress?.directionLabel
@@ -192,7 +198,7 @@ private suspend fun vehicleMapContent(
             vehicle = vehicle,
             directionLabel = directionLabel,
             nextStopName = nextStop?.name,
-            nextStopId = nextStop?.id,
+            nextStopId = progress?.nextStopId ?: nextStop?.id,
             etaLabel = etaLabel ?: "—",
             routeStops = progress?.routeStops.orEmpty(),
         ),

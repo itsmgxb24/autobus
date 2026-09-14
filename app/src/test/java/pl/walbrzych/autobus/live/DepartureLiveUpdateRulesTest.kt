@@ -41,16 +41,21 @@ class DepartureLiveUpdateRulesTest {
     }
 
     @Test
-    fun endsWhenNoLiveDataRemainsAfterTheScheduledDeparture() {
-        assertTrue(shouldEndTracking(scheduledAt.plusSeconds(61), scheduledAt, null))
+    fun keepsTrackingThroughANetworkOutageAfterTheScheduledDeparture() {
+        assertFalse(shouldEndTracking(scheduledAt.plusSeconds(61), scheduledAt, serverResponded = false, realtime = null))
     }
 
     @Test
-    fun keepsTrackingAStillApproachingVehicleButAlwaysHasAHardEnd() {
+    fun endsWhenTheServerConfirmsNoEtaAfterTheScheduledDeparture() {
+        assertTrue(shouldEndTracking(scheduledAt.plusSeconds(61), scheduledAt, serverResponded = true, realtime = realTimeDeparture(displayValue = "08:30")))
+    }
+
+    @Test
+    fun keepsTrackingAnApproachingDelayedVehiclePastTheFormerHardEnd() {
         val approaching = realTimeDeparture(displayValue = "5 min")
 
-        assertFalse(shouldEndTracking(scheduledAt.plusSeconds(120), scheduledAt, approaching))
-        assertTrue(shouldEndTracking(scheduledAt.plusSeconds(601), scheduledAt, approaching))
+        assertFalse(shouldEndTracking(scheduledAt.plusSeconds(120), scheduledAt, serverResponded = true, realtime = approaching))
+        assertFalse(shouldEndTracking(scheduledAt.plusSeconds(601), scheduledAt, serverResponded = true, realtime = approaching))
     }
 
     private fun realTimeDeparture(displayValue: String) = RealTimeDeparture(

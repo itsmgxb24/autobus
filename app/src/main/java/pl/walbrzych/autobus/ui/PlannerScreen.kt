@@ -46,13 +46,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import pl.walbrzych.autobus.data.PlannedJourney
 import pl.walbrzych.autobus.data.ScheduleSnapshot
+import pl.walbrzych.autobus.data.TransitTime
 import pl.walbrzych.autobus.data.StopData
 import pl.walbrzych.autobus.data.TransitPlanner
 
@@ -171,7 +171,7 @@ fun PlannerScreen(stops: List<StopData>, snapshot: ScheduleSnapshot) {
                                     fromStopId = selectedFrom.id,
                                     toStopId = selectedTo.id,
                                     stopoverId = selectedStopover?.id,
-                                    departureAt = LocalDateTime.now(),
+                                    departureAt = TransitTime.now(),
                                 )
                             }
                             searching = false

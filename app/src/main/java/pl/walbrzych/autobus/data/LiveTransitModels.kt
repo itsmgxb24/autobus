@@ -27,6 +27,17 @@ data class ScheduleSnapshot(
     val lastSuccessfulUpdate: Instant,
 )
 
+/** A date can activate multiple GTFS service IDs, while MyBus has one day code. */
+fun ScheduleSnapshot.activeServiceCodes(date: LocalDate): Set<String> =
+    calendar[date]
+        ?.split(SERVICE_CODE_SEPARATOR)
+        ?.map(String::trim)
+        ?.filter(String::isNotEmpty)
+        ?.toSet()
+        .orEmpty()
+
+const val SERVICE_CODE_SEPARATOR = "|"
+
 data class RealTimeDeparture(
     val departureId: Int,
     val tripId: Int,
@@ -40,9 +51,17 @@ data class RealTimeDeparture(
     /** Raw `n` from GetTimeTableReal; absent, blank and malformed values are zero. */
     val n: Int = 0,
 ) {
+    /** A valid MyBus clock value belongs to one calendar day. */
+    val hasInvalidScheduledTime: Boolean
+        get() = scheduledSeconds !in 0 until SECONDS_PER_DAY
+
     /** The server gives an ETA only when it explicitly sends the minutes form. */
     val etaMinutes: Int? = Regex("^\\s*(\\d+)\\s*min\\s*$", RegexOption.IGNORE_CASE)
         .matchEntire(displayValue)?.groupValues?.get(1)?.toIntOrNull()
+
+    /** MyBus uses this literal for a live course that is less than one minute away. */
+    val hasSubMinuteEta: Boolean = Regex("^\\s*<\\s*1\\s*min\\s*$", RegexOption.IGNORE_CASE)
+        .matches(displayValue)
 
     val arrivalLabel: String = etaMinutes?.let { "Przyjazd za $it min" }
         ?: "Przyjazd: ${displayValue.trim()}"
@@ -53,22 +72,45 @@ data class RealTimeDeparture(
      * a future course strictly closer than thirty minutes.
      */
     fun stopDetailDepartureLabel(serverTime: LocalTime): String {
-        val scheduledTime = LocalTime.ofSecondOfDay(scheduledSeconds.toLong())
-        val secondsUntilDeparture = Duration.between(serverTime, scheduledTime).seconds
+        val scheduledTime = scheduledTimeOrNull() ?: return "Odjazd: —"
+        var secondsUntilDeparture = Duration.between(serverTime, scheduledTime).seconds
+        // The API provides only a clock value. Around midnight, a small early-morning
+        // time can belong to the following service day rather than a course already gone.
+        if (secondsUntilDeparture <= 0 && serverTime.hour >= 18 && scheduledTime.hour < 6) {
+            secondsUntilDeparture += 24 * 60 * 60
+        }
         if (n != 0 && secondsUntilDeparture in 1 until THIRTY_MINUTES_SECONDS) {
+            if (hasSubMinuteEta) return "Odjazd za <1 min"
             etaMinutes?.let { return "Odjazd za $it min" }
         }
         return "Odjazd: ${displayTimeOrScheduledTime(scheduledTime)}"
+    }
+
+    /** The UI uses this only for the explicit live '<1 min' state. */
+    fun shouldBlinkSubMinuteEta(clock: LocalTime): Boolean =
+        n != 0 && hasSubMinuteEta && secondsUntil(clock) in 1..SUB_MINUTE_BLINK_SECONDS
+
+    private fun secondsUntil(clock: LocalTime): Long {
+        val scheduledTime = scheduledTimeOrNull() ?: return Long.MIN_VALUE
+        var seconds = Duration.between(clock, scheduledTime).seconds
+        if (seconds <= 0 && clock.hour >= 18 && scheduledTime.hour < 6) seconds += SECONDS_PER_DAY
+        return seconds
     }
 
     private fun displayTimeOrScheduledTime(scheduledTime: LocalTime): String =
         displayValue.toLocalTimeOrNull()?.format(TIME_FORMAT)
             ?: scheduledTime.format(TIME_FORMAT)
 
+    fun scheduledTimeOrNull(): LocalTime? =
+        scheduledSeconds.takeIf { it in 0 until SECONDS_PER_DAY }
+            ?.let { LocalTime.ofSecondOfDay(it.toLong()) }
+
     private fun String.toLocalTimeOrNull(): LocalTime? = runCatching { LocalTime.parse(trim(), TIME_FORMAT) }.getOrNull()
 
     private companion object {
+        const val SECONDS_PER_DAY = 24 * 60 * 60
         const val THIRTY_MINUTES_SECONDS = 30 * 60L
+        const val SUB_MINUTE_BLINK_SECONDS = 30L
         val TIME_FORMAT: DateTimeFormatter = DateTimeFormatter.ofPattern("HH:mm")
     }
 }

@@ -16,7 +16,6 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import androidx.core.content.edit
 import java.time.Instant
-import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -28,6 +27,7 @@ import pl.walbrzych.autobus.R
 import pl.walbrzych.autobus.data.CityCatalog
 import pl.walbrzych.autobus.data.RealTimeDeparture
 import pl.walbrzych.autobus.data.TransitRepository
+import pl.walbrzych.autobus.data.TransitTime
 
 /** Persistent identity of the exact scheduled course being tracked by the user. */
 data class DepartureLiveUpdate(
@@ -56,16 +56,22 @@ object DepartureLiveUpdateManager {
     const val EXTRA_SCHEDULED_AT = "pl.walbrzych.autobus.live.SCHEDULED_AT"
 
     private const val CHANNEL_ID = "tracked_departure_live_update"
-    private const val NOTIFICATION_ID = 4016
+    internal const val NOTIFICATION_ID = 4016
     private const val ALARM_REQUEST_CODE = 4017
     private const val NO_LIVE_DATA_GRACE_MINUTES = 1L
-    private const val HARD_END_GRACE_MINUTES = 10L
     private const val REFRESH_SECONDS = 60L
     private val providerScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     fun start(context: Context, update: DepartureLiveUpdate) {
         LiveUpdateStore(context).save(update)
-        refresh(context)
+        try {
+            DepartureLiveUpdateService.start(context.applicationContext)
+        } catch (_: SecurityException) {
+            // Keep a best-effort alarm refresh if the OS denies foreground work.
+            refresh(context)
+        } catch (_: IllegalStateException) {
+            refresh(context)
+        }
     }
 
     fun refresh(context: Context) {
@@ -87,18 +93,38 @@ object DepartureLiveUpdateManager {
     fun cancel(context: Context) {
         LiveUpdateStore(context).clear()
         scheduler.cancel(context)
+        context.stopService(Intent(context, DepartureLiveUpdateService::class.java))
         NotificationManagerCompat.from(context).cancel(NOTIFICATION_ID)
     }
 
+    /** Called after system events where a foreground service cannot safely be started. */
+    fun restore(context: Context) {
+        if (activeUpdate(context) != null) refresh(context)
+    }
+
+    internal fun activeUpdate(context: Context): DepartureLiveUpdate? = LiveUpdateStore(context).read()
+
+    internal fun connectingNotification(context: Context, update: DepartureLiveUpdate): android.app.Notification {
+        createChannel(context)
+        return buildNotification(
+            context,
+            update,
+            LiveUpdatePresentation("${update.line} • śledzenie", "Pobieranie bieżących danych"),
+        )
+    }
+
+    internal suspend fun refreshForForegroundService(context: Context): Boolean =
+        refreshNow(context, scheduleFallback = false)
+
     @SuppressLint("MissingPermission") // Guarded by canPostNotifications immediately below.
-    private suspend fun refreshNow(context: Context) {
+    private suspend fun refreshNow(context: Context, scheduleFallback: Boolean = true): Boolean {
         val update = LiveUpdateStore(context).read() ?: run {
             cancel(context)
-            return
+            return false
         }
         if (!canPostNotifications(context)) {
             cancel(context)
-            return
+            return false
         }
         val now = Instant.now()
         val scheduledAt = Instant.ofEpochMilli(update.scheduledAtMillis)
@@ -108,17 +134,18 @@ object DepartureLiveUpdateManager {
             }
         }
         val matchingDeparture = realtime?.firstOrNull { candidate -> candidate.matches(update) }
-        if (shouldEndTracking(now, scheduledAt, matchingDeparture)) {
+        if (shouldEndTracking(now, scheduledAt, serverResponded = realtime != null, realtime = matchingDeparture)) {
             cancel(context)
-            return
+            return false
         }
         createChannel(context)
         val presentation = liveUpdatePresentation(update, scheduledAt, matchingDeparture)
         NotificationManagerCompat.from(context).notify(NOTIFICATION_ID, buildNotification(context, update, presentation))
-        scheduler.schedule(context, now.plusSeconds(REFRESH_SECONDS))
+        if (scheduleFallback) scheduler.schedule(context, now.plusSeconds(REFRESH_SECONDS))
+        return true
     }
 
-    private fun buildNotification(
+    internal fun buildNotification(
         context: Context,
         update: DepartureLiveUpdate,
         presentation: LiveUpdatePresentation,
@@ -160,7 +187,7 @@ object DepartureLiveUpdateManager {
             .build()
     }
 
-    private fun createChannel(context: Context) {
+    internal fun createChannel(context: Context) {
         val channel = NotificationChannel(
             CHANNEL_ID,
             "Śledzone odjazdy",
@@ -220,7 +247,7 @@ internal fun liveUpdatePresentation(
     scheduledAt: Instant,
     realtime: RealTimeDeparture?,
 ): LiveUpdatePresentation {
-    val time = scheduledAt.atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofPattern("HH:mm"))
+    val time = scheduledAt.atZone(TransitTime.zone).format(DateTimeFormatter.ofPattern("HH:mm"))
     val eta = realtime?.etaMinutes
     return when {
         eta != null && eta > 0 -> LiveUpdatePresentation(
@@ -238,8 +265,16 @@ internal fun liveUpdatePresentation(
     }
 }
 
-internal fun shouldEndTracking(now: Instant, scheduledAt: Instant, realtime: RealTimeDeparture?): Boolean {
-    if (now.isAfter(scheduledAt.plusSeconds(10 * 60))) return true
+internal fun shouldEndTracking(
+    now: Instant,
+    scheduledAt: Instant,
+    serverResponded: Boolean,
+    realtime: RealTimeDeparture?,
+): Boolean {
+    // Keep the user-selected notification through a network outage. A course can
+    // be delayed much longer than ten minutes, so end only after the server
+    // actually responds without an ETA for that course.
+    if (!serverResponded) return false
     return now.isAfter(scheduledAt.plusSeconds(60)) && (realtime == null || realtime.etaMinutes == null || realtime.etaMinutes <= 0)
 }
 

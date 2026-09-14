@@ -2,6 +2,7 @@
 
 package pl.walbrzych.autobus.ui
 
+import android.content.Intent
 import android.net.Uri
 import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.AnimatedContent
@@ -33,16 +34,19 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.ConfirmationNumber
 import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.DragHandle
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.LocationOff
 import androidx.compose.material.icons.filled.LocationCity
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Palette
+import androidx.compose.material.icons.filled.PrivacyTip
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Route
 import androidx.compose.material.icons.filled.Schedule
@@ -110,6 +114,7 @@ import pl.walbrzych.autobus.data.distanceTo
 import pl.walbrzych.autobus.data.HomeScreenConfiguration
 import pl.walbrzych.autobus.data.HomeScreenTile
 import pl.walbrzych.autobus.data.UserInterfacePreferences
+import pl.walbrzych.autobus.data.TransitTime
 import pl.walbrzych.autobus.data.filterStopsForDisplay
 import pl.walbrzych.autobus.widget.DepartureWidgetProvider
 import pl.walbrzych.autobus.widget.DeparturesWidgetProvider
@@ -120,12 +125,15 @@ import kotlin.math.abs
 private object Routes {
     const val SCHEDULE = "schedule"
     const val ALERTS = "alerts"
-    const val PLANNER = "planner"
+    const val TICKETS = "tickets"
     const val SETTINGS = "settings"
     const val SETTINGS_CITY = "settings/city"
     const val SETTINGS_SCHEDULE = "settings/schedule"
     const val SETTINGS_APPLICATION = "settings/application"
+    const val SETTINGS_FEATURES = "settings/features"
     const val SETTINGS_DEVELOPER = "settings/developer"
+    const val SETTINGS_PRIVACY = "settings/privacy"
+    const val SETTINGS_OPEN_SOURCE = "settings/open_source"
     const val HOME_EDITOR = "home_editor"
     const val MAP = "map"
     const val STOP = "stop/{stopId}"
@@ -139,8 +147,6 @@ private object Routes {
     const val LINE_MAP_PREFIX = "line_map/"
     const val TICKET = "ticket/{ticketId}"
     const val TICKET_PREFIX = "ticket/"
-    const val TICKET_DEMO = "ticket_demo/{ticketId}"
-    const val TICKET_DEMO_PREFIX = "ticket_demo/"
 }
 
 // Used only when a user declines location access or no one-shot position is available.
@@ -162,7 +168,7 @@ private fun SyncResult.snapshot(): ScheduleSnapshot = when (this) {
 private fun rootTabIndex(route: String?): Int? = when (route) {
     Routes.SCHEDULE -> 0
     Routes.ALERTS -> 1
-    Routes.PLANNER -> 2
+    Routes.TICKETS -> 2
     Routes.SETTINGS -> 3
     else -> null
 }
@@ -294,7 +300,7 @@ private fun CityWelcomeScreen(onChooseCity: () -> Unit) {
             tint = MaterialTheme.colorScheme.primary,
         )
         Spacer(Modifier.height(24.dp))
-        Text("Witaj w AutoBUS", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+        Text("Witaj w autoBus", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(12.dp))
         Text(
             "Wybierz miasto, z którego komunikacji chcesz korzystać.",
@@ -373,7 +379,9 @@ private fun CityAppContent(
     liveUpdateTarget: DepartureOpenTarget?,
 ) {
     val context = LocalContext.current.applicationContext
-    val repository = remember(context, city.id) { TransitRepository(context, city) }
+    val interfacePreferences = remember(context) { UserInterfacePreferences(context) }
+    var useHttps by remember { mutableStateOf(interfacePreferences.useHttps()) }
+    val repository = remember(context, city.id, useHttps) { TransitRepository(context, city, useHttps) }
     val scope = rememberCoroutineScope()
     var retryKey by remember(city.id) { mutableIntStateOf(0) }
     var snapshot by remember(city.id) { mutableStateOf<ScheduleSnapshot?>(null) }
@@ -446,6 +454,15 @@ private fun CityAppContent(
             onRefresh = refresh,
             onChangeCity = onChangeCity,
             liveUpdateTarget = liveUpdateTarget,
+            useHttps = useHttps,
+            onUseHttpsChange = { enabled ->
+                interfacePreferences.setUseHttps(enabled)
+                useHttps = enabled
+                DepartureWidgetProvider.requestRefresh(context)
+                DeparturesWidgetProvider.requestRefresh(context)
+                LineDeparturesWidgetProvider.requestRefresh(context)
+                FavoriteDeparturesWidgetProvider.requestRefresh(context)
+            },
         )
     }
 }
@@ -460,6 +477,8 @@ private fun TransitNavigation(
     onRefresh: () -> Unit,
     onChangeCity: () -> Unit,
     liveUpdateTarget: DepartureOpenTarget?,
+    useHttps: Boolean,
+    onUseHttpsChange: (Boolean) -> Unit,
 ) {
     val stops = snapshot.stops
     val context = LocalContext.current.applicationContext
@@ -470,12 +489,19 @@ private fun TransitNavigation(
     var markTrackableDepartures by remember(city.id) {
         mutableStateOf(preferences.markTrackableDepartures())
     }
+    var markInvalidMidnightDepartures by remember(city.id) {
+        mutableStateOf(preferences.markInvalidMidnightDepartures())
+    }
     var homeScreenConfiguration by remember(city.id) {
         mutableStateOf(preferences.homeScreenConfiguration())
     }
     var favoriteStopIds by remember(city.id) {
         mutableStateOf(preferences.favoriteStopIds(city.id))
     }
+    var ticketPurchaseVersion by remember(city.id) { mutableIntStateOf(0) }
+    var hideKanarAlert by remember { mutableStateOf(preferences.hideKanarAlert()) }
+    var hideTickets by remember { mutableStateOf(preferences.hideTickets()) }
+    var hideSettings by remember { mutableStateOf(preferences.hideSettings()) }
     val displayedStops = remember(stops, showStopsWithoutLines) {
         filterStopsForDisplay(stops, showStopsWithoutLines)
     }
@@ -497,10 +523,10 @@ private fun TransitNavigation(
     val currentDestination = backStackEntry?.destination
     val roots = listOf(
         RootDestination(Routes.SCHEDULE, "Rozkład") { Icon(Icons.Default.Schedule, null) },
-        RootDestination(Routes.ALERTS, "KanarAlert") { Icon(Icons.Default.NotificationsActive, null) },
-        RootDestination(Routes.PLANNER, "Planer") { Icon(Icons.Default.Route, null) },
-        RootDestination(Routes.SETTINGS, "Ustawienia") { Icon(Icons.Default.Settings, null) },
-    )
+        RootDestination(Routes.ALERTS, "KanarAlert") { Icon(Icons.Default.NotificationsActive, null) }.takeUnless { hideKanarAlert },
+        RootDestination(Routes.TICKETS, "Bilety") { Icon(Icons.Default.ConfirmationNumber, null) }.takeUnless { hideTickets },
+        RootDestination(Routes.SETTINGS, "Ustawienia") { Icon(Icons.Default.Settings, null) }.takeUnless { hideSettings },
+    ).filterNotNull()
     val onStopClick: (StopData) -> Unit = { navController.navigate(Routes.STOP_PREFIX + it.id) }
     val isRoot = roots.any { root -> currentDestination?.hierarchy?.any { it.route == root.route } == true }
 
@@ -550,9 +576,11 @@ private fun TransitNavigation(
                     NavigationDestinationSurface {
                         ScheduleScreen(
                             stops = displayedStops,
-                            cityName = city.name,
                             onStopClick = onStopClick,
                             onLinesClick = { navController.navigate(Routes.LINES) },
+                            onSettingsClick = {
+                                navController.navigate(Routes.SETTINGS) { launchSingleTop = true }
+                            },
                             locationAccess = locationAccess,
                             onMapClick = { navController.navigate(Routes.MAP) },
                             homeScreenConfiguration = homeScreenConfiguration,
@@ -608,9 +636,13 @@ private fun TransitNavigation(
                         )
                     }
                 }
-                composable(route = Routes.PLANNER) {
+                composable(route = Routes.TICKETS) {
                     NavigationDestinationSurface {
-                        PlannerScreen(stops = displayedStops, snapshot = snapshot)
+                        TicketsScreen(
+                            city = city,
+                            purchaseVersion = ticketPurchaseVersion,
+                            onTicketClick = { ticket -> navController.navigate(Routes.TICKET_PREFIX + ticket.id) },
+                        )
                     }
                 }
                 composable(route = Routes.SETTINGS) {
@@ -620,7 +652,10 @@ private fun TransitNavigation(
                             onOpenCity = { navController.navigate(Routes.SETTINGS_CITY) },
                             onOpenSchedule = { navController.navigate(Routes.SETTINGS_SCHEDULE) },
                             onOpenApplication = { navController.navigate(Routes.SETTINGS_APPLICATION) },
+                            onOpenFeatures = { navController.navigate(Routes.SETTINGS_FEATURES) },
                             onOpenDeveloper = { navController.navigate(Routes.SETTINGS_DEVELOPER) },
+                            onOpenPrivacy = { navController.navigate(Routes.SETTINGS_PRIVACY) },
+                            onOpenOpenSource = { navController.navigate(Routes.SETTINGS_OPEN_SOURCE) },
                         )
                     }
                 }
@@ -661,6 +696,32 @@ private fun TransitNavigation(
                     }
                 }
                 composable(
+                    route = Routes.SETTINGS_FEATURES,
+                    enterTransition = { detailEnterFromRight() },
+                    popExitTransition = { detailPopExitToRight() },
+                ) {
+                    NavigationDestinationSurface {
+                        SettingsFeaturesScreen(
+                            onBack = navController::popBackStack,
+                            hideKanarAlert = hideKanarAlert,
+                            onHideKanarAlertChange = { hide ->
+                                preferences.setHideKanarAlert(hide)
+                                hideKanarAlert = hide
+                            },
+                            hideTickets = hideTickets,
+                            onHideTicketsChange = { hide ->
+                                preferences.setHideTickets(hide)
+                                hideTickets = hide
+                            },
+                            hideSettings = hideSettings,
+                            onHideSettingsChange = { hide ->
+                                preferences.setHideSettings(hide)
+                                hideSettings = hide
+                            },
+                        )
+                    }
+                }
+                composable(
                     route = Routes.SETTINGS_DEVELOPER,
                     enterTransition = { detailEnterFromRight() },
                     popExitTransition = { detailPopExitToRight() },
@@ -678,7 +739,32 @@ private fun TransitNavigation(
                                 preferences.setMarkTrackableDepartures(mark)
                                 markTrackableDepartures = mark
                             },
+                            markInvalidMidnightDepartures = markInvalidMidnightDepartures,
+                            onMarkInvalidMidnightDeparturesChange = { mark ->
+                                preferences.setMarkInvalidMidnightDepartures(mark)
+                                markInvalidMidnightDepartures = mark
+                            },
+                            useHttps = useHttps,
+                            onUseHttpsChange = onUseHttpsChange,
                         )
+                    }
+                }
+                composable(
+                    route = Routes.SETTINGS_PRIVACY,
+                    enterTransition = { detailEnterFromRight() },
+                    popExitTransition = { detailPopExitToRight() },
+                ) {
+                    NavigationDestinationSurface {
+                        PrivacyPolicyScreen(onBack = navController::popBackStack)
+                    }
+                }
+                composable(
+                    route = Routes.SETTINGS_OPEN_SOURCE,
+                    enterTransition = { detailEnterFromRight() },
+                    popExitTransition = { detailPopExitToRight() },
+                ) {
+                    NavigationDestinationSurface {
+                        OpenSourceInformationScreen(onBack = navController::popBackStack)
                     }
                 }
                 composable(
@@ -731,6 +817,7 @@ private fun TransitNavigation(
                             onLineClick = { line -> navController.navigate("${Routes.LINE_PREFIX}${stop.id}/$line") },
                             cityId = city.id,
                             markTrackableDepartures = markTrackableDepartures,
+                            markInvalidMidnightDepartures = markInvalidMidnightDepartures,
                             repository = repository,
                             snapshot = snapshot,
                             isFavorite = stop.id in favoriteStopIds,
@@ -851,30 +938,14 @@ private fun TransitNavigation(
                         else TicketDetailScreen(
                             ticket = ticket,
                             onBack = navController::popBackStack,
-                            onBuy = { navController.navigate(Routes.TICKET_DEMO_PREFIX + ticket.id) },
+                            onPurchase = {
+                                TicketPurchaseStore(context).save(city.id, ticket)
+                                ticketPurchaseVersion++
+                            },
+                            onContinue = {
+                                navController.popBackStack(Routes.TICKETS, inclusive = false)
+                            },
                         )
-                    }
-                }
-            composable(
-                route = Routes.TICKET_DEMO,
-                arguments = listOf(navArgument("ticketId") { type = NavType.StringType }),
-                enterTransition = {
-                    slideInVertically(
-                        animationSpec = tween(durationMillis = 250),
-                        initialOffsetY = { height -> height },
-                    )
-                },
-                popExitTransition = {
-                    slideOutVertically(
-                        animationSpec = tween(durationMillis = 250),
-                        targetOffsetY = { height -> height },
-                    )
-                },
-                ) { entry ->
-                    NavigationDestinationSurface {
-                        val ticket = ticketById(entry.arguments?.getString("ticketId"))
-                        if (ticket == null) MissingScreen("Nie znaleziono biletu.", navController::popBackStack)
-                        else DemoTicketScreen(ticket, navController::popBackStack)
                     }
                 }
             }
@@ -885,9 +956,9 @@ private fun TransitNavigation(
 @Composable
 private fun ScheduleScreen(
     stops: List<StopData>,
-    cityName: String,
     onStopClick: (StopData) -> Unit,
     onLinesClick: () -> Unit,
+    onSettingsClick: () -> Unit,
     locationAccess: UserLocationAccess,
     onMapClick: () -> Unit,
     homeScreenConfiguration: HomeScreenConfiguration,
@@ -917,7 +988,13 @@ private fun ScheduleScreen(
     }
     Column(Modifier.fillMaxSize()) {
         TopAppBar(
-            title = { Text("AutoBUS $cityName", fontWeight = FontWeight.SemiBold) },
+            title = {
+                Text(
+                    "autoBus",
+                    modifier = Modifier.clickable(onClick = onSettingsClick),
+                    fontWeight = FontWeight.SemiBold,
+                )
+            },
             actions = {
                 TextButton(onClick = onLinesClick) { Text("Linie") }
             },
@@ -1052,7 +1129,10 @@ private fun SettingsScreen(
     onOpenCity: () -> Unit,
     onOpenSchedule: () -> Unit,
     onOpenApplication: () -> Unit,
+    onOpenFeatures: () -> Unit,
     onOpenDeveloper: () -> Unit,
+    onOpenPrivacy: () -> Unit,
+    onOpenOpenSource: () -> Unit,
 ) {
     Column(Modifier.fillMaxSize()) {
         TopAppBar(
@@ -1089,6 +1169,31 @@ private fun SettingsScreen(
                         title = "Ekran startowy",
                         summary = "Widoczne kafelki i ich kolejność",
                         onClick = onOpenApplication,
+                    )
+                    HorizontalDivider(modifier = Modifier.padding(start = 72.dp), color = MaterialTheme.colorScheme.outlineVariant)
+                    SettingsNavigationRow(
+                        leadingIcon = { Icon(Icons.Default.Settings, contentDescription = null) },
+                        title = "Funkcje",
+                        summary = "Widoczność funkcji na dolnym pasku",
+                        onClick = onOpenFeatures,
+                    )
+                }
+            }
+            item { SettingsGroupTitle("Informacje") }
+            item {
+                SettingsGroup {
+                    SettingsNavigationRow(
+                        leadingIcon = { Icon(Icons.Default.PrivacyTip, contentDescription = null) },
+                        title = "Prywatność",
+                        summary = "Dane lokalne, lokalizacja i usługi mapowe",
+                        onClick = onOpenPrivacy,
+                    )
+                    HorizontalDivider(modifier = Modifier.padding(start = 72.dp), color = MaterialTheme.colorScheme.outlineVariant)
+                    SettingsNavigationRow(
+                        leadingIcon = { Icon(Icons.Default.Info, contentDescription = null) },
+                        title = "Informacje open source",
+                        summary = "Licencje używanych bibliotek i zasobów",
+                        onClick = onOpenOpenSource,
                     )
                 }
             }
@@ -1233,7 +1338,7 @@ private fun SettingsScheduleScreen(
                         headlineContent = { Text("Rozkład v${snapshot.version.version} · ${snapshot.version.validFrom}") },
                         supportingContent = {
                             Text(
-                                syncNotice ?: "Ostatnia udana aktualizacja: ${snapshot.lastSuccessfulUpdate.atZone(java.time.ZoneId.systemDefault()).toLocalDateTime().withSecond(0).withNano(0)}",
+                                syncNotice ?: "Ostatnia udana aktualizacja: ${snapshot.lastSuccessfulUpdate.atZone(TransitTime.zone).toLocalDateTime().withSecond(0).withNano(0)}",
                             )
                         },
                         trailingContent = {
@@ -1265,16 +1370,228 @@ private fun SettingsApplicationScreen(onBack: () -> Unit, onConfigureHome: () ->
 }
 
 @Composable
+private fun SettingsFeaturesScreen(
+    onBack: () -> Unit,
+    hideKanarAlert: Boolean,
+    onHideKanarAlertChange: (Boolean) -> Unit,
+    hideTickets: Boolean,
+    onHideTicketsChange: (Boolean) -> Unit,
+    hideSettings: Boolean,
+    onHideSettingsChange: (Boolean) -> Unit,
+) {
+    Column(Modifier.fillMaxSize()) {
+        SettingsDetailTopBar("Funkcje", onBack)
+        LazyColumn(contentPadding = PaddingValues(16.dp)) {
+            item {
+                SettingsGroup {
+                    SettingsToggleRow(
+                        title = "Ukryj KanarAlert",
+                        summary = "Nie pokazuj KanarAlert na dolnym pasku nawigacji.",
+                        checked = hideKanarAlert,
+                        onCheckedChange = onHideKanarAlertChange,
+                    )
+                    HorizontalDivider(modifier = Modifier.padding(start = 16.dp), color = MaterialTheme.colorScheme.outlineVariant)
+                    SettingsToggleRow(
+                        title = "Ukryj Bilety",
+                        summary = "Nie pokazuj Biletów na dolnym pasku nawigacji.",
+                        checked = hideTickets,
+                        onCheckedChange = onHideTicketsChange,
+                    )
+                    HorizontalDivider(modifier = Modifier.padding(start = 16.dp), color = MaterialTheme.colorScheme.outlineVariant)
+                    SettingsToggleRow(
+                        title = "Ukryj Ustawienia",
+                        summary = "Ustawienia pozostaną dostępne po naciśnięciu nazwy autoBus na ekranie głównym.",
+                        checked = hideSettings,
+                        onCheckedChange = onHideSettingsChange,
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SettingsToggleRow(
+    title: String,
+    summary: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+) {
+    ListItem(
+        modifier = Modifier.fillMaxWidth().clickable { onCheckedChange(!checked) },
+        headlineContent = { Text(title) },
+        supportingContent = { Text(summary) },
+        trailingContent = { Switch(checked = checked, onCheckedChange = onCheckedChange) },
+    )
+}
+
+@Composable
+private fun PrivacyPolicyScreen(onBack: () -> Unit) {
+    val context = LocalContext.current
+    Column(Modifier.fillMaxSize()) {
+        SettingsDetailTopBar("Prywatność", onBack)
+        LazyColumn(
+            contentPadding = PaddingValues(20.dp),
+            verticalArrangement = Arrangement.spacedBy(18.dp),
+        ) {
+            item {
+                Text(
+                    "Polityka prywatności",
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.SemiBold,
+                )
+            }
+            item {
+                Text(
+                    "autoBus nie wymaga konta, nie wyświetla reklam i nie korzysta z analityki ani trackerów reklamowych.",
+                    style = MaterialTheme.typography.bodyLarge,
+                )
+            }
+            item {
+                PrivacyPolicySection(
+                    title = "Dane przechowywane na urządzeniu",
+                    text = "Pobrany rozkład, wybrane miasto, ulubione przystanki, ustawienia i konfiguracje widgetów są zapisywane lokalnie na urządzeniu. Możesz je usunąć, czyszcząc dane aplikacji w ustawieniach Androida.",
+                )
+            }
+            item {
+                PrivacyPolicySection(
+                    title = "Lokalizacja",
+                    text = "Lokalizacja jest opcjonalna i służy wyłącznie do sortowania pobliskich przystanków oraz ustawienia widoku mapy. Nie jest wysyłana do serwera MyBus.",
+                )
+            }
+            item {
+                PrivacyPolicySection(
+                    title = "Rozkłady i mapa",
+                    text = "Aplikacja łączy się z serwerem operatora komunikacji, aby pobrać rozkłady i dane czasu rzeczywistego. Mapy korzystają z danych OpenStreetMap; dostawcy kafelków mogą przetwarzać adres IP oraz obszar mapy wymagany do pobrania kafelków.",
+                )
+            }
+            item {
+                PrivacyPolicySection(
+                    title = "Powiadomienia",
+                    text = "Jeżeli włączysz śledzenie odjazdu, aplikacja przetwarza lokalnie wybrany przystanek i kurs, aby odświeżać powiadomienie. Powiadomienia możesz wyłączyć w ustawieniach Androida.",
+                )
+            }
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text("Kontakt", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                    Text(
+                        "itsmgxb25@gmail.com",
+                        modifier = Modifier.clickable {
+                            runCatching {
+                                context.startActivity(
+                                    Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:itsmgxb25@gmail.com")),
+                                )
+                            }
+                        },
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                    Text(
+                        "Discord: @_itsmgxb",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun OpenSourceInformationScreen(onBack: () -> Unit) {
+    Column(Modifier.fillMaxSize()) {
+        SettingsDetailTopBar("Informacje open source", onBack)
+        LazyColumn(
+            contentPadding = PaddingValues(20.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            item {
+                Text(
+                    "Używane projekty i zasoby",
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.SemiBold,
+                )
+            }
+            item {
+                Text(
+                    "autoBus korzysta z poniższych projektów i zasobów otwartego oprogramowania. Lista będzie aktualizowana wraz z aplikacją.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            item {
+                SettingsGroup {
+                    OpenSourceEntry("Jetpack Compose i Material 3", "Apache License 2.0")
+                    HorizontalDivider(modifier = Modifier.padding(start = 20.dp), color = MaterialTheme.colorScheme.outlineVariant)
+                    OpenSourceEntry("Navigation Compose i AndroidX", "Apache License 2.0")
+                    HorizontalDivider(modifier = Modifier.padding(start = 20.dp), color = MaterialTheme.colorScheme.outlineVariant)
+                    OpenSourceEntry("osmdroid", "Apache License 2.0")
+                    HorizontalDivider(modifier = Modifier.padding(start = 20.dp), color = MaterialTheme.colorScheme.outlineVariant)
+                    OpenSourceEntry("OkHttp", "Apache License 2.0")
+                    HorizontalDivider(modifier = Modifier.padding(start = 20.dp), color = MaterialTheme.colorScheme.outlineVariant)
+                    OpenSourceEntry("ZXing", "Apache License 2.0")
+                    HorizontalDivider(modifier = Modifier.padding(start = 20.dp), color = MaterialTheme.colorScheme.outlineVariant)
+                    OpenSourceEntry("Lucide Animated — Check", "MIT License")
+                    HorizontalDivider(modifier = Modifier.padding(start = 20.dp), color = MaterialTheme.colorScheme.outlineVariant)
+                    OpenSourceEntry("Commit Mono Nerd Font", "SIL Open Font License 1.1")
+                    HorizontalDivider(modifier = Modifier.padding(start = 20.dp), color = MaterialTheme.colorScheme.outlineVariant)
+                    OpenSourceEntry("OpenStreetMap", "Open Database License (ODbL)")
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun OpenSourceEntry(name: String, license: String) {
+    ListItem(
+        headlineContent = { Text(name) },
+        supportingContent = { Text(license) },
+    )
+}
+
+@Composable
+private fun PrivacyPolicySection(title: String, text: String) {
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+        Text(text, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+@Composable
 private fun SettingsDeveloperScreen(
     onBack: () -> Unit,
     showStopsWithoutLines: Boolean,
     onShowStopsWithoutLinesChange: (Boolean) -> Unit,
     markTrackableDepartures: Boolean,
     onMarkTrackableDeparturesChange: (Boolean) -> Unit,
+    markInvalidMidnightDepartures: Boolean,
+    onMarkInvalidMidnightDeparturesChange: (Boolean) -> Unit,
+    useHttps: Boolean,
+    onUseHttpsChange: (Boolean) -> Unit,
 ) {
     Column(Modifier.fillMaxSize()) {
         SettingsDetailTopBar("Opcje deweloperskie", onBack)
         LazyColumn(contentPadding = PaddingValues(16.dp)) {
+            item {
+                Surface(
+                    onClick = { onUseHttpsChange(!useHttps) },
+                    shape = MaterialTheme.shapes.large,
+                    color = MaterialTheme.colorScheme.surfaceContainerLow,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    ListItem(
+                        headlineContent = { Text("Używaj HTTPS") },
+                        supportingContent = {
+                            Text("Zalecane, ale domyślnie wyłączone: większość serwerów MyBus nie obsługuje HTTPS.")
+                        },
+                        trailingContent = {
+                            Switch(checked = useHttps, onCheckedChange = onUseHttpsChange)
+                        },
+                    )
+                }
+            }
+            item { Spacer(Modifier.height(8.dp)) }
             item {
                 Surface(
                     onClick = { onShowStopsWithoutLinesChange(!showStopsWithoutLines) },
@@ -1316,6 +1633,31 @@ private fun SettingsDeveloperScreen(
                             Switch(
                                 checked = markTrackableDepartures,
                                 onCheckedChange = onMarkTrackableDeparturesChange,
+                            )
+                        },
+                    )
+                }
+            }
+            item { Spacer(Modifier.height(8.dp)) }
+            item {
+                Surface(
+                    onClick = { onMarkInvalidMidnightDeparturesChange(!markInvalidMidnightDepartures) },
+                    shape = MaterialTheme.shapes.large,
+                    color = MaterialTheme.colorScheme.surfaceContainerLow,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    ListItem(
+                        headlineContent = { Text("Oznacz kursy o godzinie po północy") },
+                        supportingContent = {
+                            Text(
+                                "Oznacza kursy które odjeżdzają po północy tekstem \"NIEPOPRAWNY!\". " +
+                                    "Nie dotyczy kursów następnego dnia.",
+                            )
+                        },
+                        trailingContent = {
+                            Switch(
+                                checked = markInvalidMidnightDepartures,
+                                onCheckedChange = onMarkInvalidMidnightDeparturesChange,
                             )
                         },
                     )

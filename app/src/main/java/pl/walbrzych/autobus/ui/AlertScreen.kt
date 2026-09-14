@@ -18,14 +18,22 @@ import androidx.compose.material.icons.filled.Report
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -33,6 +41,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import pl.walbrzych.autobus.data.StopData
+import pl.walbrzych.autobus.data.UserInterfacePreferences
 import pl.walbrzych.autobus.ui.theme.AutoBusTheme
 
 /**
@@ -45,6 +54,38 @@ fun AlertScreen(
     onStopClick: (StopData) -> Unit,
     onMapClick: () -> Unit = {},
 ) {
+    val context = LocalContext.current.applicationContext
+    val preferences = remember(context) { UserInterfacePreferences(context) }
+    var introductionStep by remember { mutableIntStateOf(0) }
+    LaunchedEffect(preferences) {
+        if (!preferences.hasSeenKanarAlertIntroduction()) introductionStep = 1
+    }
+    when (introductionStep) {
+        1 -> AlertDialog(
+            onDismissRequest = {},
+            title = { Text("Co to jest KanarAlert?") },
+            text = {
+                Text("KanarAlert to funkcja społecznościowa, która pozwala użytkownikom zgłaszać i sprawdzać informacje o aktualnych kontrolach biletów w komunikacji miejskiej. Dzięki zgłoszeniom społeczności możesz szybko zobaczyć, gdzie ostatnio pojawili się kontrolerzy oraz kiedy dana kontrola została zauważona.")
+            },
+            confirmButton = { TextButton(onClick = { introductionStep = 2 }) { Text("OK") } },
+        )
+        2 -> AlertDialog(
+            onDismissRequest = {
+                preferences.setKanarAlertIntroductionSeen()
+                introductionStep = 0
+            },
+            title = { Text("KanarAlert jest wyłączony") },
+            text = {
+                Text("KanarAlert jest obecnie wyłączony. Funkcja opiera się na zgłoszeniach społeczności, dlatego ma sens dopiero wtedy, gdy z aplikacji korzysta większa liczba osób.\nJeśli autoBus zyska więcej aktywnych użytkowników, uruchomimy KanarAlert.")
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    preferences.setKanarAlertIntroductionSeen()
+                    introductionStep = 0
+                }) { Text("OK") }
+            },
+        )
+    }
     Column(Modifier.fillMaxSize()) {
         TopAppBar(
             title = { Text("KanarAlert", fontWeight = FontWeight.SemiBold) },
@@ -97,7 +138,7 @@ fun AlertScreen(
                     ListItem(
                         leadingContent = { Icon(Icons.Default.Place, null, tint = MaterialTheme.colorScheme.primary) },
                         headlineContent = { Text(stop.name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                        supportingContent = { Text("Rozkłady i kierunki z zapisanej bazy MyBus") },
+                        supportingContent = { Text("Rozkłady i kierunki z zapisanej bazy") },
                     )
                 }
             }

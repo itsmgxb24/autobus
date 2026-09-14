@@ -5,15 +5,18 @@
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.POST_PROMOTED_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
     <application
         android:allowBackup="false"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:icon="@drawable/ic_launcher"
-        android:label="AutoBUS"
+        android:label="autoBus"
         android:networkSecurityConfig="@xml/network_security_config"
         android:supportsRtl="true"
-        android:theme="@style/Theme.AutoBUS">
+        android:theme="@style/Theme.autoBus">
         <activity
             android:name=".MainActivity"
             android:exported="true">
@@ -26,7 +29,7 @@
             android:name=".widget.DepartureWidgetConfigurationActivity"
             android:excludeFromRecents="true"
             android:exported="true"
-            android:theme="@style/Theme.AutoBUS">
+            android:theme="@style/Theme.autoBus">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
             </intent-filter>
@@ -35,7 +38,7 @@
             android:name=".widget.DeparturesWidgetConfigurationActivity"
             android:excludeFromRecents="true"
             android:exported="true"
-            android:theme="@style/Theme.AutoBUS">
+            android:theme="@style/Theme.autoBus">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
             </intent-filter>
@@ -44,7 +47,7 @@
             android:name=".widget.LineDeparturesWidgetConfigurationActivity"
             android:excludeFromRecents="true"
             android:exported="true"
-            android:theme="@style/Theme.AutoBUS">
+            android:theme="@style/Theme.autoBus">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
             </intent-filter>
@@ -52,7 +55,7 @@
         <receiver
             android:name=".widget.DepartureWidgetProvider"
             android:exported="false"
-            android:label="Odjazd AutoBUS (mały)">
+            android:label="Odjazd autoBus (mały)">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>
@@ -63,7 +66,7 @@
         <receiver
             android:name=".widget.DeparturesWidgetProvider"
             android:exported="false"
-            android:label="Odjazdy AutoBUS">
+            android:label="Odjazdy autoBus">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>
@@ -105,5 +108,20 @@
         <receiver
             android:name=".live.DepartureLiveUpdateReceiver"
             android:exported="false" />
+        <service
+            android:name=".live.DepartureLiveUpdateService"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
+        <receiver
+            android:name=".live.TransitSystemStateReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+                <action android:name="android.intent.action.TIME_SET" />
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+                <action android:name="android.intent.action.DATE_CHANGED" />
+            </intent-filter>
+        </receiver>
     </application>
 </manifest>

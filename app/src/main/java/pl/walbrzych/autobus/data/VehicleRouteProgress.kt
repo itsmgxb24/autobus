@@ -7,6 +7,7 @@ package pl.walbrzych.autobus.data
 data class VehicleRouteProgress(
     val directionLabel: String,
     val routeStops: List<StopData>,
+    val nextStopId: String,
 )
 
 fun vehicleRouteProgress(
@@ -35,5 +36,41 @@ fun vehicleRouteProgress(
     val directionLabel = timetable.direction.takeIf(String::isNotBlank)
         ?: vehicle.destinationLabel().takeIf(String::isNotBlank)
         ?: timetable.variant
-    return VehicleRouteProgress(directionLabel, routeStops)
+    return VehicleRouteProgress(
+        directionLabel = directionLabel,
+        routeStops = routeStops,
+        nextStopId = routeStops[nextRouteStopIndex(routeStops, vehicle)].id,
+    )
+}
+
+/**
+ * Finds the next stop from the projection of the vehicle onto the ordered route.
+ * It avoids treating the stop opened by the user as "next" after the vehicle has
+ * already passed it.
+ */
+internal fun nextRouteStopIndex(routeStops: List<StopData>, vehicle: LiveVehicle): Int {
+    if (routeStops.size <= 1) return 0
+    val longitudeScale = kotlin.math.cos(Math.toRadians(vehicle.latitude))
+    var bestSegment = 0
+    var bestProgress = 0.0
+    var bestDistanceSquared = Double.POSITIVE_INFINITY
+    routeStops.zipWithNext().forEachIndexed { index, (from, to) ->
+        val ax = (from.longitude - vehicle.longitude) * longitudeScale
+        val ay = from.latitude - vehicle.latitude
+        val bx = (to.longitude - vehicle.longitude) * longitudeScale
+        val by = to.latitude - vehicle.latitude
+        val lengthSquared = (bx - ax) * (bx - ax) + (by - ay) * (by - ay)
+        val progress = if (lengthSquared == 0.0) 0.0 else {
+            ((-ax) * (bx - ax) + (-ay) * (by - ay)) / lengthSquared
+        }.coerceIn(0.0, 1.0)
+        val dx = ax + (bx - ax) * progress
+        val dy = ay + (by - ay) * progress
+        val distanceSquared = dx * dx + dy * dy
+        if (distanceSquared < bestDistanceSquared) {
+            bestSegment = index
+            bestProgress = progress
+            bestDistanceSquared = distanceSquared
+        }
+    }
+    return if (bestProgress <= 0.03) bestSegment else (bestSegment + 1).coerceAtMost(routeStops.lastIndex)
 }

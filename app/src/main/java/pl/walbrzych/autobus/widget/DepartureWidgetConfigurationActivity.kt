@@ -51,7 +51,7 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import pl.walbrzych.autobus.data.CitySelectionStore
-import pl.walbrzych.autobus.data.ScheduleFileStore
+import pl.walbrzych.autobus.data.cachedScheduleForCity
 import pl.walbrzych.autobus.data.ScheduleSnapshot
 import pl.walbrzych.autobus.data.StopData
 import pl.walbrzych.autobus.data.UserInterfacePreferences
@@ -148,7 +148,7 @@ private fun DepartureWidgetConfigurationScreen(
 
     LaunchedEffect(city?.id) {
         snapshot = city?.let { selectedCity ->
-            withContext(Dispatchers.IO) { ScheduleFileStore(context, selectedCity.id).cachedSnapshot() }
+            withContext(Dispatchers.IO) { cachedScheduleForCity(context, selectedCity) }
         }
         loading = false
     }
@@ -194,7 +194,7 @@ private fun DepartureWidgetConfigurationScreen(
             city == null -> WidgetConfigurationMessage(
                 modifier = Modifier.padding(padding),
                 title = "Najpierw wybierz miasto",
-                body = "Otwórz AutoBUS i wybierz miasto, dla którego chcesz dodać widget.",
+                body = "Otwórz autoBus i wybierz miasto, dla którego chcesz dodać widget.",
             )
             loading -> Column(
                 Modifier.fillMaxSize().padding(padding),
@@ -204,7 +204,7 @@ private fun DepartureWidgetConfigurationScreen(
             snapshot == null -> WidgetConfigurationMessage(
                 modifier = Modifier.padding(padding),
                 title = "Brak zapisanego rozkładu",
-                body = "Otwórz AutoBUS i pozwól pobrać rozkład dla ${city.name}.",
+                body = "Otwórz autoBus i pozwól pobrać rozkład dla ${city.name}.",
             )
             selectedStop == null -> StopPicker(
                 stops = selectableStops,

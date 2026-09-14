@@ -32,6 +32,12 @@ data class TimetableData(
     /** Ordered stop identifiers from KIERUNKI.trasa. */
     val routeStopIds: List<String> = emptyList(),
     val stopOrder: Int? = null,
+    /**
+     * Absolute GTFS seconds from the start of the service day.  Unlike the MyBus
+     * clock strings, GTFS validly uses values such as 24:05 for after-midnight
+     * journeys belonging to the preceding service day.
+     */
+    val departureSeconds: List<Int> = emptyList(),
 )
 
 /** A departure expanded onto a concrete calendar date. */
@@ -119,7 +125,25 @@ fun distanceMetres(
 fun StopData.distanceTo(latitude: Double, longitude: Double): Int =
     distanceMetres(this.latitude, this.longitude, latitude, longitude)
 
-fun TimetableData.localTimes(): List<LocalTime> = times.map(LocalTime::parse)
+data class ServiceTime(val seconds: Int) {
+    init {
+        require(seconds >= 0) { "Czas kursu nie może być ujemny." }
+    }
+
+    val localTime: LocalTime get() = LocalTime.ofSecondOfDay((seconds % SECONDS_PER_DAY).toLong())
+    val dayOffset: Long get() = (seconds / SECONDS_PER_DAY).toLong()
+}
+
+private const val SECONDS_PER_DAY = 24 * 60 * 60
+
+/** Returns service-day-aware times for both legacy MyBus and standard GTFS schedules. */
+fun TimetableData.serviceTimes(): List<ServiceTime> =
+    departureSeconds.takeIf { it.isNotEmpty() }
+        ?.filter { it >= 0 }
+        ?.map(::ServiceTime)
+        ?: times.map(LocalTime::parse).map { ServiceTime(it.toSecondOfDay()) }
+
+fun TimetableData.localTimes(): List<LocalTime> = serviceTimes().map(ServiceTime::localTime)
 
 /**
  * Returns the next departures from this stop using only the selected local timetable.

@@ -11,8 +11,8 @@ android {
         applicationId = "pl.walbrzych.autobus"
         minSdk = 26
         targetSdk = 36
-        versionCode = 16
-        versionName = "1.1.15"
+        versionCode = 33
+        versionName = "1.1.32"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -40,6 +40,8 @@ dependencies {
     implementation("org.osmdroid:osmdroid-android:6.1.20")
     implementation("org.json:json:20250517")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    implementation("com.google.transit:gtfs-realtime-bindings:0.0.4")
+    implementation("com.google.zxing:core:3.5.3")
 
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.jetbrains.kotlin:kotlin-test:2.3.10")

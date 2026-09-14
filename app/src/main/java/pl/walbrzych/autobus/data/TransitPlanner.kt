@@ -134,25 +134,25 @@ object TransitPlanner {
         limit: Int,
     ): List<PlannedLeg> {
         val candidates = mutableListOf<PlannedLeg>()
-        for (dayOffset in 0..MAX_DAYS_TO_SEARCH) {
+        for (dayOffset in -1..MAX_DAYS_TO_SEARCH) {
             val serviceDate = departureAt.toLocalDate().plusDays(dayOffset.toLong())
-            val serviceDayCode = snapshot.calendar[serviceDate] ?: continue
+            val serviceDayCodes = snapshot.activeServiceCodes(serviceDate)
+            if (serviceDayCodes.isEmpty()) continue
             from.timetables
                 .asSequence()
-                .filter { it.serviceDayCode == serviceDayCode }
+                .filter { it.serviceDayCode in serviceDayCodes }
                 .forEach { sourceTable ->
                     val destinationTables = to.timetables.filter { destinationTable ->
-                        destinationTable.serviceDayCode == serviceDayCode &&
+                        destinationTable.serviceDayCode in serviceDayCodes &&
                             isSameVehicleRun(sourceTable, destinationTable) &&
                             isDownstream(sourceTable, destinationTable, from.id, to.id)
                     }
                     if (destinationTables.isEmpty()) return@forEach
-                    sourceTable.localTimes().forEachIndexed { index, sourceTime ->
-                        val depart = LocalDateTime.of(serviceDate, sourceTime)
+                    sourceTable.serviceTimes().forEachIndexed { index, sourceTime ->
+                        val depart = LocalDateTime.of(serviceDate, sourceTime.localTime).plusDays(sourceTime.dayOffset)
                         if (depart.isBefore(departureAt)) return@forEachIndexed
                         destinationTables.forEach { destinationTable ->
-                            val arrivalTime = destinationTable.localTimes().getOrNull(index) ?: return@forEach
-                            val arrivalDate = if (arrivalTime < sourceTime) serviceDate.plusDays(1) else serviceDate
+                            val arrivalTime = destinationTable.serviceTimes().getOrNull(index) ?: return@forEach
                             val stopCount = routeStopCount(sourceTable, destinationTable, from.id, to.id)
                             candidates += PlannedLeg(
                                 from = from,
@@ -160,7 +160,7 @@ object TransitPlanner {
                                 line = sourceTable.line,
                                 direction = sourceTable.direction,
                                 departureAt = depart,
-                                arrivalAt = LocalDateTime.of(arrivalDate, arrivalTime),
+                                arrivalAt = LocalDateTime.of(serviceDate, arrivalTime.localTime).plusDays(arrivalTime.dayOffset),
                                 stopCount = stopCount,
                             )
                         }

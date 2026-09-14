@@ -21,6 +21,7 @@ class VehicleRouteProgressTest {
 
         assertEquals("Podzamcze", progress?.directionLabel)
         assertEquals(listOf("one", "two", "three"), progress?.routeStops?.map(StopData::id))
+        assertEquals("two", progress?.nextStopId)
     }
 
     @Test

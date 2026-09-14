@@ -23,6 +23,11 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CloudOff
@@ -55,6 +60,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -73,6 +79,7 @@ import pl.walbrzych.autobus.data.ScheduleSnapshot
 import pl.walbrzych.autobus.data.StopData
 import pl.walbrzych.autobus.data.TimetableData
 import pl.walbrzych.autobus.data.TransitRepository
+import pl.walbrzych.autobus.data.TransitTime
 import pl.walbrzych.autobus.data.localTimes
 import pl.walbrzych.autobus.data.nextScheduledDepartures
 import pl.walbrzych.autobus.live.DepartureLiveUpdate
@@ -84,7 +91,8 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.LocalTime
-import java.time.ZoneId
+import java.time.Duration
+import kotlin.math.abs
 
 private data class UpcomingDeparture(
     val timetable: TimetableData,
@@ -105,6 +113,7 @@ fun StopDetailScreen(
     onLineClick: (String) -> Unit,
     cityId: Int? = null,
     markTrackableDepartures: Boolean = false,
+    markInvalidMidnightDepartures: Boolean = false,
     repository: TransitRepository? = null,
     snapshot: ScheduleSnapshot? = null,
     isFavorite: Boolean = false,
@@ -169,6 +178,7 @@ fun StopDetailScreen(
                 onLineClick = onLineClick,
                 cityId = cityId,
                 markTrackableDepartures = markTrackableDepartures,
+                markInvalidMidnightDepartures = markInvalidMidnightDepartures,
                 liveUpdateTarget = liveUpdateTarget,
                 onVehicleMap = onVehicleMap,
             )
@@ -185,14 +195,15 @@ private fun DeparturesTab(
     onLineClick: (String) -> Unit,
     cityId: Int?,
     markTrackableDepartures: Boolean,
+    markInvalidMidnightDepartures: Boolean,
     liveUpdateTarget: DepartureOpenTarget?,
     onVehicleMap: (pl.walbrzych.autobus.data.RealTimeDeparture) -> Unit,
 ) {
     val context = LocalContext.current.applicationContext
-    val now by androidx.compose.runtime.produceState(LocalDateTime.now(), stop.id) {
+    val now by androidx.compose.runtime.produceState(TransitTime.now(), stop.id) {
         while (true) {
-            value = LocalDateTime.now()
-            delay(30_000)
+            value = TransitTime.now()
+            delay(1_000)
         }
     }
     var refreshKey by rememberSaveable(stop.id) { mutableIntStateOf(0) }
@@ -220,11 +231,17 @@ private fun DeparturesTab(
         }
     }
     LaunchedEffect(stop.id, repository, refreshKey) {
-        realtime = if (repository == null) RealtimeState.Unavailable("Podgląd nie łączy się z serwerem.")
-        else repository.realTimeDepartures(stop.id).fold(
-            onSuccess = { RealtimeState.Available(it) },
-            onFailure = { RealtimeState.Unavailable(it.message ?: "Brak połączenia z serwerem MyBus.") },
-        )
+        if (repository == null) {
+            realtime = RealtimeState.Unavailable("Podgląd nie łączy się z serwerem.")
+            return@LaunchedEffect
+        }
+        while (true) {
+            realtime = repository.realTimeDepartures(stop.id).fold(
+                onSuccess = { RealtimeState.Available(it) },
+                onFailure = { RealtimeState.Unavailable(it.message ?: "Brak połączenia z serwerem MyBus.") },
+            )
+            delay(20_000)
+        }
     }
     val departures = remember(stop, snapshot, now.toLocalDate(), now.hour, now.minute) {
         nextDepartures(stop, snapshot, now)
@@ -244,23 +261,36 @@ private fun DeparturesTab(
             }
             is RealtimeState.Available -> {
                 state.data.notice?.let { notice -> item { Text(notice, style = MaterialTheme.typography.bodySmall) } }
-                if (state.data.departures.isEmpty()) item { Text("Serwer nie zwrócił bieżących odjazdów.") }
-                else items(state.data.departures, key = { it.departureId }) { departure ->
+                val visibleDepartures = state.data.departures.filter { departure ->
+                    markInvalidMidnightDepartures || !departure.hasInvalidScheduledTime
+                }
+                if (visibleDepartures.isEmpty()) item { Text("Brak bieżących odjazdów.") }
+                else items(visibleDepartures, key = { it.departureId }) { departure ->
+                    val invalidScheduledTime = departure.hasInvalidScheduledTime
                     val update = cityId?.let {
                         realtimeTrackingUpdate(it, stop, departure, now)
                     }
-                    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)) {
+                    Card(
+                        colors = CardDefaults.cardColors(
+                            containerColor = if (invalidScheduledTime) {
+                                MaterialTheme.colorScheme.errorContainer
+                            } else {
+                                MaterialTheme.colorScheme.primaryContainer
+                            },
+                        ),
+                    ) {
                         Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
                             AssistChip(onClick = { onLineClick(departure.line) }, label = { Text(departure.line, fontWeight = FontWeight.Bold) })
                             Spacer(Modifier.width(10.dp))
                             Column(Modifier.weight(1f)) {
                                 Text(departure.direction, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                Text(
-                                    departure.stopDetailDepartureLabel(
-                                        state.data.serverTime.toServerTimeOrNull() ?: now.toLocalTime(),
-                                    ),
-                                    color = MaterialTheme.colorScheme.primary,
-                                    style = MaterialTheme.typography.labelMedium,
+                                val serverClock = state.data.serverTime.toServerTimeOrNull() ?: now.toLocalTime()
+                                val label = if (invalidScheduledTime) "NIEPOPRAWNY!"
+                                else departure.stopDetailDepartureLabel(serverClock)
+                                RealtimeDepartureLabel(
+                                    label = label,
+                                    blink = !invalidScheduledTime && departure.shouldBlinkSubMinuteEta(now.toLocalTime()),
+                                    color = if (invalidScheduledTime) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
                                 )
                             }
                             update?.let {
@@ -313,6 +343,23 @@ private fun DeparturesTab(
             )
         }
     }
+}
+
+@Composable
+private fun RealtimeDepartureLabel(label: String, blink: Boolean, color: androidx.compose.ui.graphics.Color) {
+    val transition = rememberInfiniteTransition(label = "sub-minute-departure")
+    val blinkAlpha by transition.animateFloat(
+        initialValue = 1f,
+        targetValue = 0.3f,
+        animationSpec = infiniteRepeatable(tween(420), RepeatMode.Reverse),
+        label = "sub-minute-departure-alpha",
+    )
+    Text(
+        text = label,
+        modifier = Modifier.alpha(if (blink) blinkAlpha else 1f),
+        color = color,
+        style = MaterialTheme.typography.labelMedium,
+    )
 }
 
 @Composable
@@ -388,16 +435,19 @@ private fun realtimeTrackingUpdate(
     stop: StopData,
     departure: pl.walbrzych.autobus.data.RealTimeDeparture,
     now: LocalDateTime,
-): DepartureLiveUpdate = DepartureLiveUpdate(
-    cityId = cityId,
-    stopId = stop.id,
-    stopName = stop.name,
-    line = departure.line,
-    direction = departure.direction,
-    scheduledAtMillis = departure.scheduledInstant(now).toEpochMilli(),
-    scheduledSeconds = departure.scheduledSeconds,
-    tripId = departure.tripId,
-)
+): DepartureLiveUpdate? {
+    val scheduledInstant = departure.scheduledInstantOrNull(now) ?: return null
+    return DepartureLiveUpdate(
+        cityId = cityId,
+        stopId = stop.id,
+        stopName = stop.name,
+        line = departure.line,
+        direction = departure.direction,
+        scheduledAtMillis = scheduledInstant.toEpochMilli(),
+        scheduledSeconds = departure.scheduledSeconds,
+        tripId = departure.tripId,
+    )
+}
 
 private fun scheduledTrackingUpdate(
     cityId: Int,
@@ -409,15 +459,19 @@ private fun scheduledTrackingUpdate(
     stopName = stop.name,
     line = departure.timetable.line,
     direction = departure.timetable.direction,
-    scheduledAtMillis = departure.dateTime.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli(),
+    scheduledAtMillis = departure.dateTime.atZone(TransitTime.zone).toInstant().toEpochMilli(),
     scheduledSeconds = departure.dateTime.toLocalTime().toSecondOfDay(),
 )
 
-private fun pl.walbrzych.autobus.data.RealTimeDeparture.scheduledInstant(now: LocalDateTime): Instant {
-    val time = LocalTime.ofSecondOfDay(scheduledSeconds.toLong())
-    var scheduled = LocalDateTime.of(now.toLocalDate(), time)
-    if (scheduled.isBefore(now.minusMinutes(1))) scheduled = scheduled.plusDays(1)
-    return scheduled.atZone(ZoneId.systemDefault()).toInstant()
+internal fun pl.walbrzych.autobus.data.RealTimeDeparture.scheduledInstantOrNull(now: LocalDateTime): Instant? {
+    val time = scheduledTimeOrNull() ?: return null
+    // GetTimeTableReal has no date. Choose the occurrence closest to the server's
+    // current day; blindly moving every earlier clock time to tomorrow incorrectly
+    // turns delayed courses into tomorrow's trip.
+    val scheduled = sequenceOf(-1L, 0L, 1L)
+        .map { dayOffset -> LocalDateTime.of(now.toLocalDate().plusDays(dayOffset), time) }
+        .minBy { candidate -> abs(Duration.between(now, candidate).seconds) }
+    return scheduled.atZone(TransitTime.zone).toInstant()
 }
 
 private fun DepartureOpenTarget?.matches(update: DepartureLiveUpdate): Boolean =

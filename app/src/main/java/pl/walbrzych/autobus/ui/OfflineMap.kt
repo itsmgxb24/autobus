@@ -235,12 +235,12 @@ fun VehicleLocationMap(
         Surface(
             color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
             shape = MaterialTheme.shapes.small,
-            modifier = Modifier.align(Alignment.BottomStart).padding(12.dp),
+            modifier = Modifier.align(Alignment.BottomStart).padding(8.dp),
         ) {
             Text(
-                text = "© OpenStreetMap",
-                style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp),
+                text = "© OpenStreetMap contributors",
+                style = MaterialTheme.typography.labelSmall.copy(fontSize = 8.sp),
+                modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp),
             )
         }
     }
@@ -370,16 +370,12 @@ private fun TransitMap(
         Surface(
             color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
             shape = MaterialTheme.shapes.small,
-            modifier = Modifier.align(Alignment.BottomStart).padding(12.dp),
+            modifier = Modifier.align(Alignment.BottomStart).padding(8.dp),
         ) {
             Text(
-                text = when {
-                    vehicles.isNotEmpty() -> "Pojazdy z serwera MyBus · linia ${line.orEmpty()}"
-                    line != null -> "Przebieg linii $line z kolejności przystanków w bazie"
-                    else -> "© OpenStreetMap"
-                },
-                style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp),
+                text = "© OpenStreetMap contributors",
+                style = MaterialTheme.typography.labelSmall.copy(fontSize = 8.sp),
+                modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp),
             )
         }
     }

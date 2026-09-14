@@ -10,9 +10,6 @@ import android.content.Intent
 import android.os.Build
 import android.widget.RemoteViews
 import java.time.Instant
-import java.time.LocalDateTime
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -21,8 +18,9 @@ import kotlinx.coroutines.withTimeoutOrNull
 import pl.walbrzych.autobus.MainActivity
 import pl.walbrzych.autobus.R
 import pl.walbrzych.autobus.data.CityCatalog
-import pl.walbrzych.autobus.data.ScheduleFileStore
+import pl.walbrzych.autobus.data.cachedScheduleForCity
 import pl.walbrzych.autobus.data.TransitRepository
+import pl.walbrzych.autobus.data.TransitTime
 import pl.walbrzych.autobus.data.nextScheduledDepartures
 
 /** Original compact 2×2 widget: one chosen line and its next departure. */
@@ -65,7 +63,7 @@ class DepartureWidgetProvider : AppWidgetProvider() {
                 val store = DepartureWidgetConfigurationStore(context)
                 val refreshAt = ids.map { widgetId ->
                     val content = store.read(widgetId)?.let { resolveContent(context, it) }
-                        ?: CompactContent("AutoBUS", "Wybierz odjazd", "Otwórz konfigurację widgetu", null)
+                        ?: CompactContent("autoBus", "Wybierz odjazd", "Otwórz konfigurację widgetu", null)
                     render(context, manager, widgetId, content)
                     content.refreshAt
                 }.filterNotNull().minOrNull()
@@ -78,33 +76,36 @@ class DepartureWidgetProvider : AppWidgetProvider() {
 
     private suspend fun resolveContent(context: Context, configuration: DepartureWidgetConfiguration): CompactContent {
         val line = configuration.lines.firstOrNull()
-            ?: return CompactContent("AutoBUS", "Wybierz linię", "Otwórz konfigurację widgetu", null)
-        val snapshot = ScheduleFileStore(context, configuration.cityId).cachedSnapshot()
-            ?: return CompactContent(line, "Brak zapisanego rozkładu", "z: otwórz AutoBUS", null)
+            ?: return CompactContent("autoBus", "Wybierz linię", "Otwórz konfigurację widgetu", null)
+        val city = CityCatalog.byId(configuration.cityId)
+            ?: return CompactContent(line, "Miasto niedostępne", "z: otwórz autoBus", null)
+        val snapshot = cachedScheduleForCity(context, city)
+            ?: return CompactContent(line, "Brak zapisanego rozkładu", "z: otwórz autoBus", null)
         val stop = snapshot.stops.firstOrNull { it.id == configuration.stopId }
-            ?: return CompactContent(line, "Przystanek niedostępny", "z: otwórz AutoBUS", null)
-        val now = LocalDateTime.now()
+            ?: return CompactContent(line, "Przystanek niedostępny", "z: otwórz autoBus", null)
+        val now = TransitTime.now()
         val next = nextScheduledDepartures(snapshot, stop, line, now, limit = 1).firstOrNull()
-        val etaMinutes = CityCatalog.byId(configuration.cityId)?.let { city ->
+        val liveDeparture = CityCatalog.byId(configuration.cityId)?.let { city ->
             withTimeoutOrNull(8_000) {
                 TransitRepository(context, city).realTimeDepartures(stop.id).getOrNull()
                     ?.departures
                     ?.asSequence()
-                    ?.filter { it.line == line }
-                    ?.mapNotNull { it.etaMinutes }
-                    ?.filter { it >= 0 }
-                    ?.minOrNull()
+                    ?.firstOrNull { departure ->
+                        next != null && departure.line == line &&
+                            departure.scheduledSeconds == next.scheduledAt.toLocalTime().toSecondOfDay() &&
+                            (departure.direction == next.timetable.direction || departure.direction.isBlank())
+                    }
             }
         }
         val refreshAt = when {
-            etaMinutes != null -> Instant.now().plusSeconds(60)
-            next != null -> next.scheduledAt.atZone(ZoneId.systemDefault()).toInstant().plusSeconds(2)
+            liveDeparture?.etaMinutes != null -> Instant.now().plusSeconds(60)
+            next != null -> next.scheduledAt.atZone(TransitTime.zone).toInstant().plusSeconds(2)
             else -> Instant.now().plusSeconds(NO_DEPARTURE_RETRY_SECONDS)
         }
         return CompactContent(
             line = line,
-            departure = etaMinutes?.let { "Przyjazd za $it min" }
-                ?: next?.let { "Przyjazd: ${it.scheduledAt.format(TIME_FORMAT)}" }
+            departure = liveDeparture?.let { widgetDepartureLabel(it, next?.scheduledAt, now) }
+                ?: next?.let { widgetScheduledDepartureLabel(it.scheduledAt, now) }
                 ?: "Brak kolejnych kursów",
             stop = "z: ${stop.name}",
             refreshAt = refreshAt,
@@ -140,7 +141,6 @@ class DepartureWidgetProvider : AppWidgetProvider() {
     companion object {
         private const val ACTION_REFRESH = "pl.walbrzych.autobus.widget.COMPACT_REFRESH"
         private const val NO_DEPARTURE_RETRY_SECONDS = 30 * 60L
-        private val TIME_FORMAT = DateTimeFormatter.ofPattern("HH:mm")
         private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
         fun requestRefresh(context: Context, appWidgetIds: IntArray? = null) {

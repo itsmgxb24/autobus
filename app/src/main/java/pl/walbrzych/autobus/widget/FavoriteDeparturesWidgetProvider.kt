@@ -9,9 +9,6 @@ import android.content.Intent
 import android.view.View
 import android.widget.RemoteViews
 import java.time.Instant
-import java.time.LocalDateTime
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -19,8 +16,9 @@ import kotlinx.coroutines.launch
 import pl.walbrzych.autobus.MainActivity
 import pl.walbrzych.autobus.R
 import pl.walbrzych.autobus.data.CitySelectionStore
-import pl.walbrzych.autobus.data.ScheduleFileStore
+import pl.walbrzych.autobus.data.cachedScheduleForCity
 import pl.walbrzych.autobus.data.UserInterfacePreferences
+import pl.walbrzych.autobus.data.TransitTime
 
 /**
  * A 4×3 dashboard that combines the closest courses from the user's favourite
@@ -72,11 +70,11 @@ class FavoriteDeparturesWidgetProvider : AppWidgetProvider() {
             ?: return Content("Ulubione odjazdy", "Najpierw wybierz miasto", emptyList(), null)
         val favorites = UserInterfacePreferences(context).favoriteStopIds(city.id)
         if (favorites.isEmpty()) {
-            return Content("Ulubione odjazdy", "Dodaj przystanki do ulubionych w AutoBUS", emptyList(), null)
+            return Content("Ulubione odjazdy", "Dodaj przystanki do ulubionych w autoBus", emptyList(), null)
         }
-        val snapshot = ScheduleFileStore(context, city.id).cachedSnapshot()
+        val snapshot = cachedScheduleForCity(context, city)
             ?: return Content("Ulubione odjazdy", "Brak zapisanego rozkładu", emptyList(), null)
-        val now = LocalDateTime.now()
+        val now = TransitTime.now()
         val rows = selectFavoriteWidgetDepartures(snapshot, favorites, now)
         return Content(
             title = "Ulubione odjazdy",
@@ -86,11 +84,11 @@ class FavoriteDeparturesWidgetProvider : AppWidgetProvider() {
                     line = favorite.departure.timetable.line,
                     stop = favorite.stop.name,
                     direction = favorite.departure.timetable.direction,
-                    time = "Przyjazd: ${favorite.departure.scheduledAt.format(TIME_FORMAT)}",
+                    time = widgetScheduledDepartureLabel(favorite.departure.scheduledAt, now),
                 )
             },
             refreshAt = rows.firstOrNull()?.departure?.scheduledAt
-                ?.atZone(ZoneId.systemDefault())
+                ?.atZone(TransitTime.zone)
                 ?.toInstant()
                 ?.plusSeconds(2)
                 ?: Instant.now().plusSeconds(NO_DEPARTURE_RETRY_SECONDS),
@@ -150,7 +148,6 @@ class FavoriteDeparturesWidgetProvider : AppWidgetProvider() {
     companion object {
         private const val ACTION_REFRESH = "pl.walbrzych.autobus.widget.FAVORITE_DEPARTURES_REFRESH"
         private const val NO_DEPARTURE_RETRY_SECONDS = 30 * 60L
-        private val TIME_FORMAT = DateTimeFormatter.ofPattern("HH:mm")
         private val providerScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
         private val refreshScheduler = WidgetRefreshScheduler(
             requestCode = 7024,

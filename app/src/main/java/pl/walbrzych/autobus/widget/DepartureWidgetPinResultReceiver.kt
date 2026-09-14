@@ -5,7 +5,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 
-/** Finishes a launcher pin request with the stop and optional line filters selected in AutoBUS. */
+/** Finishes a launcher pin request with the stop and optional line filters selected in autoBus. */
 class DepartureWidgetPinResultReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         val widgetId = intent.getIntExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, AppWidgetManager.INVALID_APPWIDGET_ID)

@@ -49,6 +49,43 @@ class UserInterfacePreferences(context: Context) {
         preferences.edit(commit = true) { putBoolean(MARK_TRACKABLE_DEPARTURES, mark) }
     }
 
+    fun markInvalidMidnightDepartures(): Boolean = preferences.getBoolean(MARK_INVALID_MIDNIGHT_DEPARTURES, false)
+
+    fun setMarkInvalidMidnightDepartures(mark: Boolean) {
+        preferences.edit(commit = true) { putBoolean(MARK_INVALID_MIDNIGHT_DEPARTURES, mark) }
+    }
+
+    /** TLS can be enabled per user; legacy HTTP remains the compatible default. */
+    fun useHttps(): Boolean = preferences.getBoolean(USE_HTTPS, false)
+
+    fun setUseHttps(useHttps: Boolean) {
+        preferences.edit(commit = true) { putBoolean(USE_HTTPS, useHttps) }
+    }
+
+    fun hideKanarAlert(): Boolean = preferences.getBoolean(HIDE_KANAR_ALERT, false)
+
+    fun setHideKanarAlert(hide: Boolean) {
+        preferences.edit(commit = true) { putBoolean(HIDE_KANAR_ALERT, hide) }
+    }
+
+    fun hideTickets(): Boolean = preferences.getBoolean(HIDE_TICKETS, false)
+
+    fun setHideTickets(hide: Boolean) {
+        preferences.edit(commit = true) { putBoolean(HIDE_TICKETS, hide) }
+    }
+
+    fun hideSettings(): Boolean = preferences.getBoolean(HIDE_SETTINGS, false)
+
+    fun setHideSettings(hide: Boolean) {
+        preferences.edit(commit = true) { putBoolean(HIDE_SETTINGS, hide) }
+    }
+
+    fun hasSeenKanarAlertIntroduction(): Boolean = preferences.getBoolean(KANAR_ALERT_INTRODUCTION_SEEN, false)
+
+    fun setKanarAlertIntroductionSeen() {
+        preferences.edit(commit = true) { putBoolean(KANAR_ALERT_INTRODUCTION_SEEN, true) }
+    }
+
     fun homeScreenConfiguration(): HomeScreenConfiguration = normalizedHomeScreenConfiguration(
         preferences.getString(START_TILE_ORDER, null)?.split(ORDER_SEPARATOR)?.filter(String::isNotBlank),
         preferences.getStringSet(START_TILE_VISIBLE, null),
@@ -80,6 +117,12 @@ class UserInterfacePreferences(context: Context) {
         const val PREFERENCES = "user_interface_preferences"
         const val SHOW_STOPS_WITHOUT_LINES = "show_stops_without_lines"
         const val MARK_TRACKABLE_DEPARTURES = "mark_trackable_departures"
+        const val MARK_INVALID_MIDNIGHT_DEPARTURES = "mark_invalid_midnight_departures"
+        const val USE_HTTPS = "use_https"
+        const val HIDE_KANAR_ALERT = "hide_kanar_alert"
+        const val HIDE_TICKETS = "hide_tickets"
+        const val HIDE_SETTINGS = "hide_settings"
+        const val KANAR_ALERT_INTRODUCTION_SEEN = "kanar_alert_introduction_seen"
         const val START_TILE_ORDER = "start_tile_order"
         const val START_TILE_VISIBLE = "start_tile_visible"
         const val FAVORITES_PREFIX = "favorite_stops_"
