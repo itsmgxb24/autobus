@@ -9,3 +9,8 @@ local.properties
 # Generated build artifacts
 build/
 **/build/
+
+# BusDevice local Wi-Fi credentials and the generated Telink RAM program.
+/hardware/BusDevice/WifiLocal.h
+/hardware/BusDevice/tag-firmware/deps/
+/hardware/BusDevice/src/generated/NebularRamImage.h

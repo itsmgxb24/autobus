@@ -1,0 +1,2 @@
+# Preserve the original formatting of the vendored TinyXML2 sources.
+tinyxml2.* -text -whitespace

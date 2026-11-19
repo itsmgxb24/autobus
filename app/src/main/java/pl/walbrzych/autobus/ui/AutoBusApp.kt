@@ -36,6 +36,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.ConfirmationNumber
 import androidx.compose.material.icons.filled.Build
+import androidx.compose.material.icons.filled.Bluetooth
 import androidx.compose.material.icons.filled.DragHandle
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.Favorite
@@ -132,6 +133,7 @@ private object Routes {
     const val SETTINGS_APPLICATION = "settings/application"
     const val SETTINGS_FEATURES = "settings/features"
     const val SETTINGS_DEVELOPER = "settings/developer"
+    const val SETTINGS_BUS_DEVICE = "settings/developer/busdevice"
     const val SETTINGS_PRIVACY = "settings/privacy"
     const val SETTINGS_OPEN_SOURCE = "settings/open_source"
     const val HOME_EDITOR = "home_editor"
@@ -312,15 +314,16 @@ private fun CityWelcomeScreen(onChooseCity: () -> Unit) {
 }
 
 @Composable
-private fun CityPickerScreen(
+internal fun CityPickerScreen(
     selectedCity: CityConfig?,
     onBack: () -> Unit,
     onCitySelected: (CityConfig) -> Unit,
+    catalogue: List<CityConfig> = CityCatalog.cities,
 ) {
     BackHandler(onBack = onBack)
     var query by rememberSaveable { mutableStateOf("") }
-    val cities = remember(query) {
-        CityCatalog.cities.filter { city ->
+    val cities = remember(query, catalogue) {
+        catalogue.filter { city ->
             query.isBlank() || city.name.contains(query, ignoreCase = true) ||
                 city.operator.contains(query, ignoreCase = true)
         }
@@ -729,6 +732,7 @@ private fun TransitNavigation(
                     NavigationDestinationSurface {
                         SettingsDeveloperScreen(
                             onBack = navController::popBackStack,
+                            onOpenBusDevice = { navController.navigate(Routes.SETTINGS_BUS_DEVICE) },
                             showStopsWithoutLines = showStopsWithoutLines,
                             onShowStopsWithoutLinesChange = { show ->
                                 preferences.setShowStopsWithoutLines(show)
@@ -747,6 +751,15 @@ private fun TransitNavigation(
                             useHttps = useHttps,
                             onUseHttpsChange = onUseHttpsChange,
                         )
+                    }
+                }
+                composable(
+                    route = Routes.SETTINGS_BUS_DEVICE,
+                    enterTransition = { detailEnterFromRight() },
+                    popExitTransition = { detailPopExitToRight() },
+                ) {
+                    NavigationDestinationSurface {
+                        BusDeviceScreen(city, useHttps, onBack = navController::popBackStack)
                     }
                 }
                 composable(
@@ -1213,7 +1226,7 @@ private fun SettingsScreen(
 }
 
 @Composable
-private fun SettingsGroup(content: @Composable () -> Unit) {
+internal fun SettingsGroup(content: @Composable () -> Unit) {
     Surface(
         shape = MaterialTheme.shapes.large,
         color = MaterialTheme.colorScheme.surfaceContainerLow,
@@ -1224,7 +1237,7 @@ private fun SettingsGroup(content: @Composable () -> Unit) {
 }
 
 @Composable
-private fun SettingsGroupTitle(title: String) {
+internal fun SettingsGroupTitle(title: String) {
     Text(
         title,
         modifier = Modifier.padding(horizontal = 4.dp),
@@ -1235,7 +1248,7 @@ private fun SettingsGroupTitle(title: String) {
 }
 
 @Composable
-private fun SettingsNavigationRow(
+internal fun SettingsNavigationRow(
     leadingIcon: @Composable () -> Unit,
     title: String,
     summary: String,
@@ -1290,7 +1303,7 @@ private fun SettingsInlineRow(
 }
 
 @Composable
-private fun SettingsDetailTopBar(title: String, onBack: () -> Unit) {
+internal fun SettingsDetailTopBar(title: String, onBack: () -> Unit) {
     TopAppBar(
         title = { Text(title, fontWeight = FontWeight.SemiBold) },
         navigationIcon = {
@@ -1561,6 +1574,7 @@ private fun PrivacyPolicySection(title: String, text: String) {
 @Composable
 private fun SettingsDeveloperScreen(
     onBack: () -> Unit,
+    onOpenBusDevice: () -> Unit,
     showStopsWithoutLines: Boolean,
     onShowStopsWithoutLinesChange: (Boolean) -> Unit,
     markTrackableDepartures: Boolean,
@@ -1573,6 +1587,17 @@ private fun SettingsDeveloperScreen(
     Column(Modifier.fillMaxSize()) {
         SettingsDetailTopBar("Opcje deweloperskie", onBack)
         LazyColumn(contentPadding = PaddingValues(16.dp)) {
+            item {
+                SettingsGroup {
+                    SettingsNavigationRow(
+                        leadingIcon = { Icon(Icons.Default.Bluetooth, contentDescription = null) },
+                        title = "BusDevice",
+                        summary = "Ustawienia bezprzewodowej tablicy odjazdów",
+                        onClick = onOpenBusDevice,
+                    )
+                }
+                Spacer(Modifier.height(12.dp))
+            }
             item {
                 Surface(
                     onClick = { onUseHttpsChange(!useHttps) },
