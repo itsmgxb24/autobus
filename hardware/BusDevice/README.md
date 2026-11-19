@@ -2,6 +2,8 @@
 
 Urządzenie działa na Waveshare ESP32-S3-Zero z Nebular Pro. ESP32 pobiera odjazdy z MyBus przez Wi-Fi i wysyła obraz do panelu po SWS. Aplikacja autoBus konfiguruje urządzenie przez Bluetooth LE w **Ustawienia → Opcje deweloperskie → BusDevice**. Po zapisaniu konfiguracji telefon nie jest potrzebny do działania tablicy.
 
+APK `assembleDebug` instaluje się jako **autoBus BusDevice** obok wydania z Google Play. Obie aplikacje mają osobne ustawienia i lokalne rozkłady.
+
 | ESP32-S3-Zero | Nebular Pro |
 | --- | --- |
 | GPIO5 | SWS |

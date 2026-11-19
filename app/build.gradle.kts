@@ -13,7 +13,15 @@ android {
         targetSdk = 36
         versionCode = 35
         versionName = "1.1.34"
+        manifestPlaceholders["autoBusLabel"] = "autoBus"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    buildTypes {
+        debug {
+            applicationIdSuffix = ".busdevice"
+            manifestPlaceholders["autoBusLabel"] = "autoBus BusDevice"
+        }
     }
 
     buildFeatures { compose = true; buildConfig = true }
