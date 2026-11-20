@@ -34,6 +34,8 @@ import kotlinx.coroutines.withTimeout
 
 internal data class BusDevicePeer(val address: String, val name: String)
 
+private const val PAIRING_HELP = "Naciśnij BOOT na działającym ESP32 i ponów. Jeśli BusDevice jest już zapisane w ustawieniach Bluetooth, wybierz „Zapomnij”."
+
 internal fun busDevicePermissions(): Array<String> = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
     arrayOf(Manifest.permission.BLUETOOTH_SCAN, Manifest.permission.BLUETOOTH_CONNECT)
 } else {
@@ -84,12 +86,14 @@ internal class BusDeviceBle(private val context: Context) : AutoCloseable {
         val bluetooth = checkNotNull(adapter) { "Ten telefon nie obsługuje Bluetooth LE." }
         check(bluetooth.isEnabled) { "Włącz Bluetooth, aby połączyć się z BusDevice." }
         val device = bluetooth.getRemoteDevice(target.address)
-        ensureBond(device)
         val gatt = BusDeviceGatt(context, online)
         session = gatt
         peer = target
         try {
+            // Establish a LE link before asking Android to bond on its automatic transport.
             gatt.open(device)
+            ensureBond(device)
+            gatt.markOnline()
             return gatt
         } catch (error: Throwable) {
             if (session === gatt) close() else gatt.close()
@@ -108,7 +112,7 @@ internal class BusDeviceBle(private val context: Context) : AutoCloseable {
                 when (intent.getIntExtra(BluetoothDevice.EXTRA_BOND_STATE, BluetoothDevice.ERROR)) {
                     BluetoothDevice.BOND_BONDED -> result.complete(Unit)
                     BluetoothDevice.BOND_NONE -> result.completeExceptionally(IOException(
-                        "Parowanie nie powiodło się. Naciśnij BOOT na ESP32 i spróbuj ponownie.",
+                        "Parowanie nie powiodło się. $PAIRING_HELP",
                     ))
                 }
             }
@@ -117,7 +121,7 @@ internal class BusDeviceBle(private val context: Context) : AutoCloseable {
         try {
             when (device.bondState) {
                 BluetoothDevice.BOND_BONDED -> return
-                BluetoothDevice.BOND_NONE -> check(device.createBond()) { "Nie udało się rozpocząć parowania." }
+                BluetoothDevice.BOND_NONE -> check(device.createBond()) { "Nie udało się rozpocząć parowania. $PAIRING_HELP" }
             }
             withTimeout(50_000) { result.await() }
         } finally {
@@ -151,7 +155,8 @@ private class BusDeviceGatt(private val context: Context, private val online: Mu
             if (status == BluetoothGatt.GATT_SUCCESS && newState == BluetoothProfile.STATE_CONNECTED) {
                 if (!gatt.discoverServices()) fail("Wyszukiwanie usług BusDevice nie powiodło się.")
             } else if (status != BluetoothGatt.GATT_SUCCESS || newState == BluetoothProfile.STATE_DISCONNECTED) {
-                fail("Połączenie z BusDevice zostało przerwane ($status).")
+                fail(if (ready.isCompleted) "Połączenie z BusDevice zostało przerwane ($status)."
+                    else "Nie udało się połączyć z BusDevice. $PAIRING_HELP")
             }
         }
 
@@ -160,7 +165,6 @@ private class BusDeviceGatt(private val context: Context, private val online: Mu
             val service = gatt.getService(BusDeviceProtocol.service)
             if (status == BluetoothGatt.GATT_SUCCESS && service?.getCharacteristic(BusDeviceProtocol.request) != null &&
                 service.getCharacteristic(BusDeviceProtocol.response) != null) {
-                online.value = true
                 ready.complete(Unit)
             } else {
                 fail("Urządzenie nie udostępnia ustawień BusDevice. Sprawdź oprogramowanie ESP32.")
@@ -186,6 +190,11 @@ private class BusDeviceGatt(private val context: Context, private val online: Mu
         link = checkNotNull(gatt) { "Nie udało się połączyć z BusDevice." }
         if (closed) gatt.close()
         withTimeout(18_000) { ready.await() }
+    }
+
+    fun markOnline() {
+        check(!closed) { "Połączenie z BusDevice zostało przerwane. $PAIRING_HELP" }
+        online.value = true
     }
 
     suspend fun readSettings(): BusDeviceSettings = lock.withLock { readConfiguration() }

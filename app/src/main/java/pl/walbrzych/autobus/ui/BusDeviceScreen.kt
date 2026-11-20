@@ -260,7 +260,7 @@ internal fun BusDeviceScreen(activeCity: CityConfig, useHttps: Boolean, onBack: 
             when (page) {
                 BusPage.Pair -> {
                     item {
-                        WizardStep("1 z 3", "Połącz urządzenie", "Włącz BusDevice i krótko naciśnij BOOT na ESP32, aby umożliwić parowanie.")
+                        WizardStep("1 z 3", "Połącz urządzenie", "Na działającym ESP32 naciśnij BOOT. Wybierz wykryte urządzenie i potwierdź parowanie. BusDevice nie wymaga PIN-u.")
                     }
                     item {
                         Button(onClick = ::scan, enabled = !scanning && !refreshing, modifier = Modifier.fillMaxWidth()) {

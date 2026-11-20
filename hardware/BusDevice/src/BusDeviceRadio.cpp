@@ -4,7 +4,6 @@
 #include <NimBLEDevice.h>
 #include <Preferences.h>
 #include <algorithm>
-#include <atomic>
 #include <cstring>
 #include <mutex>
 
@@ -14,7 +13,7 @@ constexpr char requestId[] = "add0b001-24a0-4d80-9f70-ab0000000002";
 constexpr char responseId[] = "add0b001-24a0-4d80-9f70-ab0000000003";
 constexpr uint8_t opRead = 1, opStage = 2, opCommit = 3;
 constexpr size_t header = 4, chunk = 16;
-constexpr unsigned long pairWindow = 120000;
+constexpr uint32_t pairWindow = 120000;
 constexpr uint8_t bootPin = 0;
 
 std::mutex settingsLock;
@@ -22,10 +21,12 @@ BusDeviceConfig current;
 bool changed = false;
 Preferences storage;
 bool storageAvailable = false;
-std::atomic<bool> pairing = false;
-std::atomic<unsigned long> pairOpenedAt = 0;
-bool buttonPressed = false;
+// A nonzero token is the press time plus one. Both the button ISR and BLE task use it.
+portMUX_TYPE pairingMux = portMUX_INITIALIZER_UNLOCKED;
+uint32_t pairingToken = 0;
+uint32_t loggedPairingToken = 0;
 uint16_t accepted = BLE_HS_CONN_HANDLE_NONE;
+uint32_t newPeerToken = 0;
 NimBLECharacteristic *response = nullptr;
 
 uint8_t staged[busDeviceMaxConfig];
@@ -35,22 +36,45 @@ uint8_t snapshot[busDeviceMaxConfig];
 uint8_t readTransaction = 0;
 size_t snapshotSize = 0;
 
-bool pairingOpen() { return pairing.load() && millis() - pairOpenedAt.load() < pairWindow; }
+bool pairingOpen(uint32_t token) {
+  return token != 0 && static_cast<uint32_t>(millis()) - (token - 1) < pairWindow;
+}
 
-void openPairing() {
-  pairOpenedAt = millis();
-  pairing = true;
-  Serial.println("BusDevice: parowanie dostępne przez 2 minuty.");
+uint32_t ARDUINO_ISR_ATTR newPairingToken() {
+  const uint32_t now = millis();
+  return now == UINT32_MAX ? UINT32_MAX : now + 1;
+}
+
+void ARDUINO_ISR_ATTR openPairingFromButton() {
+  const auto token = newPairingToken();
+  portENTER_CRITICAL_ISR(&pairingMux);
+  pairingToken = token;
+  portEXIT_CRITICAL_ISR(&pairingMux);
+}
+
+uint32_t currentPairingToken() {
+  portENTER_CRITICAL(&pairingMux);
+  const auto token = pairingToken;
+  portEXIT_CRITICAL(&pairingMux);
+  return token;
+}
+
+void closePairingIfUnchanged(uint32_t expected) {
+  portENTER_CRITICAL(&pairingMux);
+  if (pairingToken == expected) pairingToken = 0;
+  portEXIT_CRITICAL(&pairingMux);
 }
 
 class ServerEvents : public NimBLEServerCallbacks {
   void onConnect(NimBLEServer *server, NimBLEConnInfo &info) override {
-    if (accepted != BLE_HS_CONN_HANDLE_NONE ||
-        (!pairingOpen() && !NimBLEDevice::isBonded(info.getIdAddress()))) {
+    const auto token = currentPairingToken();
+    const bool known = NimBLEDevice::isBonded(info.getIdAddress());
+    if (accepted != BLE_HS_CONN_HANDLE_NONE || (!known && !pairingOpen(token))) {
       server->disconnect(info.getConnHandle());
       return;
     }
     accepted = info.getConnHandle();
+    newPeerToken = known ? 0 : token;
   }
 
   void onAuthenticationComplete(NimBLEConnInfo &info) override {
@@ -59,12 +83,17 @@ class ServerEvents : public NimBLEServerCallbacks {
       NimBLEDevice::getServer()->disconnect(info.getConnHandle());
       return;
     }
-    pairing = false;
+    // Reconnecting a bonded peer must not close a freshly opened setup window.
+    if (newPeerToken != 0) {
+      closePairingIfUnchanged(newPeerToken);
+      newPeerToken = 0;
+    }
   }
 
   void onDisconnect(NimBLEServer *, NimBLEConnInfo &info, int) override {
     if (info.getConnHandle() != accepted) return;
     accepted = BLE_HS_CONN_HANDLE_NONE;
+    newPeerToken = 0;
     stagedSize = snapshotSize = 0;
     stageTransaction = readTransaction = 0;
   }
@@ -165,15 +194,23 @@ void startBusDeviceRadio(BusDeviceConfig &config) {
   advertising->addServiceUUID(serviceId);
   advertising->enableScanResponse(true);
   advertising->setName(name);
-  if (!NimBLEDevice::getNumBonds()) openPairing();
+  if (!NimBLEDevice::getNumBonds()) {
+    const auto token = newPairingToken();
+    portENTER_CRITICAL(&pairingMux);
+    pairingToken = token;
+    portEXIT_CRITICAL(&pairingMux);
+  }
+  attachInterrupt(digitalPinToInterrupt(bootPin), openPairingFromButton, FALLING);
   advertising->start();
   Serial.printf("BusDevice: Bluetooth LE — %s.\n", name);
 }
 
 bool pollBusDeviceRadio(BusDeviceConfig &config) {
-  const bool pressed = digitalRead(bootPin) == LOW;
-  if (pressed && !buttonPressed) openPairing();
-  buttonPressed = pressed;
+  const auto token = currentPairingToken();
+  if (token != loggedPairingToken && pairingOpen(token)) {
+    loggedPairingToken = token;
+    Serial.println("BusDevice: parowanie dostępne przez 2 minuty.");
+  }
   std::lock_guard<std::mutex> lock(settingsLock);
   if (!changed) return false;
   config = current;
